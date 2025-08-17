@@ -1,0 +1,770 @@
+{% extends "conteo_impresiones/base.html" %}
+
+{% block page_title %}Historial de Conteos{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item">
+        <a href="{{ url_for('conteo_impresiones.index') }}">Conteos</a>
+    </li>
+    <li class="breadcrumb-item active">
+        Historial: {{ equipo.nombre }}
+        {% if equipo.numero_serie %}({{ equipo.numero_serie }}){% endif %}
+    </li>
+{% endblock %}
+
+{% block card_title %}
+    <i class="fas fa-history me-2"></i>Historial de Conteos
+    <small class="text-muted">
+        {{ equipo.nombre }}
+        {% if equipo.marca or equipo.modelo %}
+            ({{ equipo.marca }} {{ equipo.modelo }})
+        {% endif %}
+        {% if equipo.numero_serie %}
+            - S/N: {{ equipo.numero_serie }}
+        {% endif %}
+    </small>
+{% endblock %}
+
+{% block card_actions %}
+    <div class="d-flex">
+        {% if current_user.tiene_permiso('crear_conteos') %}
+        <a href="{{ url_for('conteo_impresiones.nuevo_conteo') }}?equipo_id={{ equipo.id }}" 
+           class="btn btn-primary btn-sm me-2">
+            <i class="fas fa-plus me-1"></i> Nuevo Conteo
+        </a>
+        {% endif %}
+        
+        {% if current_user.tiene_permiso('exportar_conteos') %}
+        <button class="btn btn-outline-secondary btn-sm me-2" id="btnExportar">
+            <i class="fas fa-file-export me-1"></i> Exportar
+        </button>
+        {% endif %}
+        
+        {% if current_user.tiene_permiso('gestionar_equipos') %}
+        <a href="{{ url_for('conteo_impresiones.editar_equipo', id=equipo.id) }}" 
+           class="btn btn-outline-secondary btn-sm me-2">
+            <i class="fas fa-edit me-1"></i> Editar Equipo
+        </a>
+        {% endif %}
+        
+        {% if current_user.tiene_permiso('admin_todo') %}
+        <div class="dropdown ms-2">
+            <button class="btn btn-outline-danger btn-sm dropdown-toggle" type="button" 
+                    id="adminActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="fas fa-shield-alt me-1"></i> Admin
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown">
+                <li><a class="dropdown-item" href="#"><i class="fas fa-cog me-2"></i>Configuración Avanzada</a></li>
+                <li><a class="dropdown-item" href="#"><i class="fas fa-database me-2"></i>Gestionar Base de Datos</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item text-danger" href="#"><i class="fas fa-exclamation-triangle me-2"></i>Acciones de Superadmin</a></li>
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block card_content %}
+<!-- Información del Equipo -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col-md-8">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Información del Equipo
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ equipo.nombre }}
+                            {% if equipo.marca or equipo.modelo %}
+                            <small class="d-block text-muted">{{ equipo.marca }} {{ equipo.modelo }}</small>
+                            {% endif %}
+                            <small class="d-block text-muted">S/N: {{ equipo.numero_serie or 'No especificado' }}</small>
+                            <small class="d-block">
+                                <span class="badge bg-{{ 'success' if equipo.estado == 'activo' else 'danger' }}">
+                                    {{ equipo.estado|title }}
+                                </span>
+                                {% if ultimo_conteo and ultimo_conteo.requiere_mantenimiento %}
+                                <span class="badge bg-danger">
+                                    <i class="fas fa-exclamation-triangle me-1"></i> Requiere Mantenimiento
+                                </span>
+                                {% if current_user.tiene_permiso('registrar_mantenimiento') %}
+                                <button class="btn btn-sm btn-outline-danger ms-2" data-bs-toggle="modal" data-bs-target="#programarMantenimientoModal">
+                                    <i class="fas fa-tools me-1"></i> Programar Mantenimiento
+                                </button>
+                                {% endif %}
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                        <div class="text-xs text-muted mb-1">Ubicación:</div>
+                        <div class="h6 mb-0">
+                            {{ equipo.sucursal.nombre }}<br>
+                            <small class="text-muted">{{ equipo.sucursal.direccion }}</small>
+                        </div>
+                    </div>
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-print fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-filter me-2"></i>Filtrar Historial
+                </h6>
+            </div>
+            <div class="card-body">
+                <form id="filtroForm" class="row g-3">
+                    <div class="col-md-5">
+                        <label for="fecha_desde" class="form-label small font-weight-bold text-uppercase text-muted">Fecha Desde</label>
+                        <input type="date" class="form-control" id="fecha_desde" name="fecha_desde" value="{{ fecha_desde or '' }}">
+                    </div>
+                    <div class="col-md-5">
+                        <label for="fecha_hasta" class="form-label small font-weight-bold text-uppercase text-muted">Fecha Hasta</label>
+                        <input type="date" class="form-control" id="fecha_hasta" name="fecha_hasta" value="{{ fecha_hasta or '' }}">
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search me-1"></i> Filtrar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Resumen de Estadísticas -->
+<div class="row mb-4">
+    <!-- Total de Impresiones -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-primary shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">
+                            Total de Impresiones
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ "{:,}".format(total_impresiones) }}
+                        </div>
+                        {% if promedio_diario %}
+                        <div class="mt-2 text-xs text-muted">
+                            <i class="fas fa-calendar-day me-1"></i> {{ "{:,}".format(promedio_diario.impresiones|round|int) }} por día
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-print fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total de Escaneos -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-success shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-success text-uppercase mb-1">
+                            Total de Escaneos
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ "{:,}".format(total_escaneos) }}
+                        </div>
+                        {% if promedio_diario %}
+                        <div class="mt-2 text-xs text-muted">
+                            <i class="fas fa-calendar-day me-1"></i> {{ "{:,}".format(promedio_diario.escaneos|round|int) }} por día
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-copy fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Total de Copias -->
+    <div class="col-xl-4 col-md-6 mb-4">
+        <div class="card border-left-info shadow h-100 py-2">
+            <div class="card-body">
+                <div class="row no-gutters align-items-center">
+                    <div class="col mr-2">
+                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">
+                            Total de Copias
+                        </div>
+                        <div class="h5 mb-0 font-weight-bold text-gray-800">
+                            {{ "{:,}".format(total_copias) }}
+                        </div>
+                        {% if promedio_diario %}
+                        <div class="mt-2 text-xs text-muted">
+                            <i class="fas fa-calendar-day me-1"></i> {{ "{:,}".format(promedio_diario.copias|round|int) }} por día
+                        </div>
+                        {% endif %}
+                    </div>
+                    <div class="col-auto">
+                        <i class="fas fa-copy fa-2x text-gray-300"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gráfico de Uso -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-chart-line me-2"></i>Uso de la Impresora
+                </h6>
+                <div class="dropdown no-arrow">
+                    <a class="dropdown-toggle" href="#" role="button" id="dropdownMenuLink" 
+                       data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-ellipsis-v fa-sm fa-fw text-gray-400"></i>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-right shadow animated--fade-in" 
+                         aria-labelledby="dropdownMenuLink">
+                        <div class="dropdown-header">Opciones del Gráfico:</div>
+                        <a class="dropdown-item" href="#" id="btnImpresiones">Solo Impresiones</a>
+                        <a class="dropdown-item" href="#" id="btnEscaneos">Solo Escaneos</a>
+                        <a class="dropdown-item" href="#" id="btnCopias">Solo Copias</a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#" id="btnTodos">Mostrar Todos</a>
+                    </div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="usoImpresoraChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            <div class="card-body">
+                <div class="chart-area">
+                    <canvas id="impresionesChart"></canvas>
+                </div>
+                <div class="mt-4 text-center small">
+                    <span class="me-2">
+                        <i class="fas fa-circle text-primary"></i> Impresiones
+                    </span>
+                    <span class="me-2">
+                        <i class="fas fa-circle text-success"></i> Promedio Móvil (3 meses)
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-chart-pie me-1"></i>Distribución de Uso
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-pie pt-4 pb-2">
+                    <canvas id="usoPieChart"></canvas>
+                </div>
+                <div class="mt-4 text-center small">
+                    <span class="me-2">
+                        <i class="fas fa-circle text-primary"></i> Impresiones
+                    </span>
+                    <span class="me-2">
+                        <i class="fas fa-circle text-success"></i> Escaneos
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow mb-4">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">
+            <i class="fas fa-table me-1"></i>Registros de Conteo
+        </h6>
+        {% if current_user.tiene_permiso('exportar_conteos') %}
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('conteo_impresiones.exportar_historial', equipo_id=equipo.id, formato='excel') }}" 
+               class="btn btn-sm btn-success me-2" data-bs-toggle="tooltip" title="Exportar a Excel">
+                <i class="fas fa-file-excel me-1"></i> Excel
+            </a>
+            <a href="{{ url_for('conteo_impresiones.exportar_historial', equipo_id=equipo.id, formato='pdf') }}" 
+               class="btn btn-sm btn-danger" data-bs-toggle="tooltip" title="Exportar a PDF">
+                <i class="fas fa-file-pdf me-1"></i> PDF
+            </a>
+        </div>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="dataTable" width="100%" cellspacing="0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Fecha</th>
+                        <th class="text-end">Impresiones</th>
+                        <th class="text-end">Escaneos</th>
+                        <th class="text-end">Dif. Impresiones</th>
+                        <th class="text-end">Dif. Escaneos</th>
+                        <th>Técnico</th>
+                        <th>Estado</th>
+                        <th class="text-center">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for c in conteos %}
+                    <tr>
+                        <td>{{ c.fecha_conteo.strftime('%d/%m/%Y %H:%M') }}</td>
+                        <td class="text-end">{{ "{:,}".format(c.contador_impresiones) }}</td>
+                        <td class="text-end">{{ "{:,}".format(c.contador_escaneos) }}</td>
+                        <td class="text-end {{ 'text-success' if c.impresiones_desde_ultimo > 0 else 'text-muted' }}">
+                            {{ "+{:,}".format(c.impresiones_desde_ultimo) if c.impresiones_desde_ultimo > 0 else '0' }}
+                        </td>
+                        <td class="text-end {{ 'text-success' if c.escaneos_desde_ultimo > 0 else 'text-muted' }}">
+                            {{ "+{:,}".format(c.escaneos_desde_ultimo) if c.escaneos_desde_ultimo > 0 else '0' }}
+                        </td>
+                        <td>{{ c.tecnico.nombre }}</td>
+                        <td>
+                            {% if c.requiere_mantenimiento %}
+                                <span class="badge bg-danger">Mantenimiento</span>
+                            {% else %}
+                                <span class="badge bg-success">Normal</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <a href="{{ url_for('conteo_impresiones.ver_conteo', id=c.id) }}" 
+                               class="btn btn-sm btn-info" data-bs-toggle="tooltip" title="Ver detalles">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot>
+                    <tr class="table-light">
+                        <th>Total</th>
+                        <th class="text-end">{{ "{:,}".format(conteos|sum(attribute='contador_impresiones')) }}</th>
+                        <th class="text-end">{{ "{:,}".format(conteos|sum(attribute='contador_escaneos')) }}</th>
+                        <th class="text-end">{{ "{:,}".format(conteos|sum(attribute='impresiones_desde_ultimo')) }}</th>
+                        <th class="text-end">{{ "{:,}".format(conteos|sum(attribute='escaneos_desde_ultimo')) }}</th>
+                        <th colspan="3"></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Programar Mantenimiento -->
+{% if current_user.tiene_permiso('programar_mantenimiento') %}
+<div class="modal fade" id="programarMantenimientoModal" tabindex="-1" aria-labelledby="programarMantenimientoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning">
+                <h5 class="modal-title" id="programarMantenimientoModalLabel">
+                    <i class="fas fa-tools me-2"></i>Programar Mantenimiento
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <form action="{{ url_for('conteo_impresiones.programar_mantenimiento', equipo_id=equipo.id) }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="fecha_mantenimiento" class="form-label">Fecha Programada</label>
+                        <input type="date" class="form-control" id="fecha_mantenimiento" name="fecha_mantenimiento" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="notas_mantenimiento" class="form-label">Notas (opcional)</label>
+                        <textarea class="form-control" id="notas_mantenimiento" name="notas_mantenimiento" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fas fa-calendar-check me-1"></i> Programar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Establecer la fecha mínima como mañana para el campo de fecha de mantenimiento
+document.addEventListener('DOMContentLoaded', function() {
+    const fechaMantenimiento = document.getElementById('fecha_mantenimiento');
+    if (fechaMantenimiento) {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        fechaMantenimiento.min = tomorrow.toISOString().split('T')[0];
+    }
+});
+
+// Page level plugins
+<script src="{{ url_for('static', filename='vendor/chart.js/Chart.min.js') }}"></script>
+
+<script>
+// Inicialización de tooltips de Bootstrap
+$(function () {
+    $('[data-bs-toggle="tooltip"]').tooltip();
+});
+
+// Variables globales para los gráficos
+var usoImpresoraChart;
+
+// Inicializar DataTable
+$(document).ready(function() {
+    var table = $('#dataTable').DataTable({
+        order: [[0, 'desc']], // Ordenar por fecha descendente por defecto
+        language: {
+            url: '//cdn.datatables.net/plug-ins/1.10.25/i18n/Spanish.json'
+        },
+        dom: "<'row'<'col-sm-12 col-md-6'l><'col-sm-12 col-md-6'f>>" +
+             "<'row'<'col-sm-12'tr>>" +
+             "<'row'<'col-sm-12 col-md-5'i><'col-sm-12 col-md-7'p>>",
+        pageLength: 25,
+        buttons: [
+            {
+                extend: 'excel',
+                text: '<i class="fas fa-file-excel me-1"></i> Excel',
+                className: 'btn btn-success btn-sm',
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5, 6]
+                }
+            },
+            {
+                extend: 'pdf',
+                text: '<i class="fas fa-file-pdf me-1"></i> PDF',
+                className: 'btn btn-danger btn-sm',
+                exportOptions: {
+                    columns: [0, 1, 2, 3, 4, 5, 6]
+                }
+            }
+        ]
+    });
+    
+    // Inicializar tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Inicializar gráficos
+    inicializarGraficoUso();
+    
+    // Manejar clics en los botones de filtro
+    $('#btnImpresiones').on('click', function(e) {
+        e.preventDefault();
+        toggleSerie(0, true);
+        toggleSerie(1, false);
+        toggleSerie(2, false);
+    });
+    
+    $('#btnEscaneos').on('click', function(e) {
+        e.preventDefault();
+        toggleSerie(0, false);
+        toggleSerie(1, true);
+        toggleSerie(2, false);
+    });
+    
+    $('#btnCopias').on('click', function(e) {
+        e.preventDefault();
+        toggleSerie(0, false);
+        toggleSerie(1, false);
+        toggleSerie(2, true);
+    });
+    
+    $('#btnTodos').on('click', function(e) {
+        e.preventDefault();
+        toggleSerie(0, true);
+        toggleSerie(1, true);
+        toggleSerie(2, true);
+    });
+});
+
+// Inicializar el gráfico de uso
+function inicializarGraficoUso() {
+    var ctx = document.getElementById('usoImpresoraChart').getContext('2d');
+    
+    // Datos para el gráfico
+    var fechas = [
+        {% for c in conteos|reverse %}
+            '{{ c.fecha_conteo.strftime("%d/%m/%Y") }}'{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    var impresiones = [
+        {% for c in conteos|reverse %}
+            {{ c.contador_impresiones }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    var escaneos = [
+        {% for c in conteos|reverse %}
+            {{ c.contador_escaneos or 0 }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    var copias = [
+        {% for c in conteos|reverse %}
+            {{ c.contador_copias or 0 }}{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+    
+    var config = {
+        type: 'line',
+        data: {
+            labels: fechas,
+            datasets: [{
+                label: 'Impresiones',
+                data: impresiones,
+                borderColor: '#4e73df',
+                backgroundColor: 'rgba(78, 115, 223, 0.1)',
+                tension: 0.3,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }, {
+                label: 'Escaneos',
+                data: escaneos,
+                borderColor: '#1cc88a',
+                backgroundColor: 'rgba(28, 200, 138, 0.1)',
+                tension: 0.3,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }, {
+                label: 'Copias',
+                data: copias,
+                borderColor: '#36b9cc',
+                backgroundColor: 'rgba(54, 185, 204, 0.1)',
+                tension: 0.3,
+                fill: true,
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 5
+            }]
+        },
+        options: {
+            maintainAspectRatio: false,
+            layout: {
+                padding: {
+                    left: 10,
+                    right: 25,
+                    top: 25,
+                    bottom: 0
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        display: false,
+                        drawBorder: false
+                    },
+                    ticks: {
+                        maxTicksLimit: 7
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        maxTicksLimit: 5,
+                        padding: 10,
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        }
+                    },
+                    grid: {
+                        color: 'rgb(234, 236, 244)',
+                        zeroLineColor: 'rgb(234, 236, 244)',
+                        drawBorder: false,
+                        borderDash: [2],
+                        zeroLineBorderDash: [2]
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 20
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgb(255,255,255)',
+                    bodyColor: '#858796',
+                    titleMarginBottom: 10,
+                    titleFontColor: '#6e707e',
+                    titleFontSize: 14,
+                    borderColor: '#dddfeb',
+                    borderWidth: 1,
+                    xPadding: 15,
+                    yPadding: 15,
+                    displayColors: false,
+                    intersect: false,
+                    mode: 'index',
+                    caretPadding: 10,
+                    callbacks: {
+                        label: function(context) {
+                            var label = context.dataset.label || '';
+                            if (label) {
+                                label += ': ';
+                            }
+                            if (context.parsed.y !== null) {
+                                label += context.parsed.y.toLocaleString();
+                            }
+                            return label;
+                        }
+                    }
+                }
+            }
+        }
+    };
+    
+    // Destruir gráfico anterior si existe
+    if (window.usoImpresoraChart) {
+        window.usoImpresoraChart.destroy();
+    }
+    
+    // Crear nuevo gráfico
+    window.usoImpresoraChart = new Chart(ctx, config);
+}
+
+// Manejar la visibilidad de las series del gráfico
+function toggleSerie(index, mostrar) {
+    if (window.usoImpresoraChart) {
+        var meta = window.usoImpresoraChart.getDatasetMeta(index);
+        if (meta) {
+            meta.hidden = mostrar === false ? true : null;
+            window.usoImpresoraChart.update();
+        }
+    }
+}
+
+// Manejar el envío del formulario de filtros
+$('#filtroForm').on('submit', function(e) {
+            }
+        }
+    };
+    
+    // Destruir gráfico anterior si existe
+    if (window.usoImpresoraChart) {
+        window.usoImpresoraChart.destroy();
+    }
+    
+    // Crear nuevo gráfico
+    window.usoImpresoraChart = new Chart(ctx, config);
+}
+
+// Manejar la visibilidad de las series del gráfico
+function toggleSerie(index, mostrar) {
+    if (window.usoImpresoraChart) {
+        var meta = window.usoImpresoraChart.getDatasetMeta(index);
+        if (meta) {
+            meta.hidden = mostrar === false ? true : null;
+            window.usoImpresoraChart.update();
+        }
+    }
+}
+
+// Manejar el envío del formulario de filtros
+$('#filtroForm').on('submit', function(e) {
+    e.preventDefault();
+    var formData = $(this).serialize();
+    var url = window.location.pathname + '?' + formData;
+    window.location.href = url;
+});
+
+// Inicializar datepickers con restricciones
+var hoy = new Date().toISOString().split('T')[0];
+$('#fecha_desde, #fecha_hasta').attr('max', hoy);
+
+$('#fecha_desde').on('change', function() {
+    $('#fecha_hasta').attr('min', $(this).val());
+});
+
+$('#fecha_hasta').on('change', function() {
+    $('#fecha_desde').attr('max', $(this).val());
+});
+    
+    // Manejar clics en los botones de filtro
+    $('#btnImpresiones').on('click', function(e) {
+        e.preventDefault();
+        toggleSerie(0, true);
+        toggleSerie(1, false);
+        toggleSerie(2, false);
+        link.href = document.getElementById('impresionesChart').toDataURL('image/png');
+        link.click();
+    });
+    
+    document.getElementById('exportChartPdf').addEventListener('click', function() {
+        // Usar jsPDF para exportar a PDF
+        var doc = new jsPDF('l', 'mm', 'a4');
+        var canvas = document.getElementById('impresionesChart');
+        var imgData = canvas.toDataURL('image/png');
+        
+        // Título del informe
+        doc.setFontSize(18);
+        doc.text('Informe de Uso de Impresora', 105, 20, {align: 'center'});
+        
+        // Información de la impresora
+        doc.setFontSize(12);
+        doc.text(`Impresora: {{ impresora.marca }} {{ impresora.modelo }} ({{ impresora.numero_serie }})`, 20, 40);
+        doc.text(`Cliente: {{ impresora.cliente.nombre }} - {{ impresora.sucursal.nombre }}`, 20, 48);
+        doc.text(`Período: {{ conteos|last.fecha_conteo.strftime('%d/%m/%Y') }} al {{ conteos|first.fecha_conteo.strftime('%d/%m/%Y') }}`, 20, 56);
+        
+        // Añadir el gráfico
+        doc.addImage(imgData, 'PNG', 30, 70, 240, 120);
+        
+        // Añadir tabla de resumen
+        doc.autoTable({
+            startY: 200,
+            head: [['Período', 'Impresiones', 'Escaneos', 'Total']],
+            body: [
+                ['Últimos 30 días', '{{ "{:,}".format(conteos|selectattr("fecha_conteo", "ge", (now - timedelta(days=30)).date())|sum(attribute="impresiones_desde_ultimo")) }}', 
+                 '{{ "{:,}".format(conteos|selectattr("fecha_conteo", "ge", (now - timedelta(days=30)).date())|sum(attribute="escaneos_desde_ultimo")) }}',
+                 '{{ "{:,}".format(conteos|selectattr("fecha_conteo", "ge", (now - timedelta(days=30)).date())|sum(attribute="impresiones_desde_ultimo", "escaneos_desde_ultimo")) }}'],
+                ['Últimos 90 días', '{{ "{:,}".format(conteos|selectattr("fecha_conteo", "ge", (now - timedelta(days=90)).date())|sum(attribute="impresiones_desde_ultimo")) }}', 
+                 '{{ "{:,}".format(conteos|selectattr("fecha_conteo", "ge", (now - timedelta(days=90)).date())|sum(attribute="escaneos_desde_ultimo")) }}',
+                 '{{ "{:,}".format(conteos|selectattr("fecha_conteo", "ge", (now - timedelta(days=90)).date())|sum(attribute="impresiones_desde_ultimo", "escaneos_desde_ultimo")) }}'],
+                ['Total General', '{{ "{:,}".format(conteos|sum(attribute="impresiones_desde_ultimo")) }}', 
+                 '{{ "{:,}".format(conteos|sum(attribute="escaneos_desde_ultimo")) }}',
+                 '{{ "{:,}".format(conteos|sum(attribute="impresiones_desde_ultimo", "escaneos_desde_ultimo")) }}']
+            ],
+            theme: 'grid',
+            headStyles: { fillColor: [78, 115, 223] },
+            margin: { top: 10 }
+        });
+        
+        // Guardar el PDF
+        doc.save('informe-impresora-{{ impresora.numero_serie }}.pdf');
+    });
+});
+</script>
+{% endblock %}

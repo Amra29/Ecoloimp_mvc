@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}Administración de Permisos - Sistema de Servicio Técnico{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block bg-light sidebar collapse">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'permisos' %}active{% endif %}" 
+                           href="{{ url_for('admin_permisos.listar_permisos') }}">
+                            <i class="fas fa-key me-2"></i>Permisos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'roles' %}active{% endif %}" 
+                           href="{{ url_for('admin_permisos.listar_roles') }}">
+                            <i class="fas fa-user-tag me-2"></i>Roles
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if active_page == 'asignaciones' %}active{% endif %}" 
+                           href="#">
+                            <i class="fas fa-tasks me-2"></i>Asignaciones
+                        </a>
+                    </li>
+                </ul>
+                
+                <h6 class="sidebar-heading d-flex justify-content-between align-items-center px-3 mt-4 mb-1 text-muted">
+                    <span>Reportes</span>
+                </h6>
+                <ul class="nav flex-column mb-2">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#">
+                            <i class="fas fa-chart-bar me-2"></i>Uso de permisos
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">{% block header_title %}{% endblock %}</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    {% block header_actions %}{% endblock %}
+                </div>
+            </div>
+            
+            <!-- Mensajes flash -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+            
+            <!-- Contenido de la página -->
+            {% block admin_content %}{% endblock %}
+            
+        </main>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- Scripts específicos para la administración de permisos -->
+<script>
+    // Inicializar tooltips
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+    
+    // Función para confirmar eliminaciones
+    function confirmarEliminacion(event) {
+        if (!confirm('¿Está seguro de que desea eliminar este elemento? Esta acción no se puede deshacer.')) {
+            event.preventDefault();
+            return false;
+        }
+        return true;
+    }
+</script>
+{% endblock %}

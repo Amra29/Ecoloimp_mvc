@@ -1,0 +1,307 @@
+{% extends "conteo_impresiones/base.html" %}
+{% block page_title %}{{ titulo|default('Nuevo Conteo de Impresiones') }}{% endblock %}
+
+{% block card_title %}
+    <i class="fas fa-print me-2"></i>{{ titulo|default('Nuevo Conteo de Impresiones') }}
+{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item"><a href="{{ url_for('conteo_impresiones.index') }}">Conteos</a></li>
+    <li class="breadcrumb-item active">{{ 'Editar' if form.id.data else 'Nuevo' }} Conteo</li>
+{% endblock %}
+
+{% block card_content %}
+<div class="container-fluid">
+    <form method="POST" id="conteoForm" novalidate>
+        {{ form.hidden_tag() }}
+        {% if form.visita_id.data %}
+            <input type="hidden" name="visita_id" value="{{ form.visita_id.data }}">
+        {% endif %}
+        
+        <!-- Tarjeta de Información del Cliente y Equipo -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-building me-2"></i>Información del Cliente y Equipo
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            {{ form.cliente_id.label(class="form-label small font-weight-bold text-uppercase text-muted") }}
+                            {{ form.cliente_id(class="form-control select2" + (' is-invalid' if form.cliente_id.errors else '')) }}
+                            {% for error in form.cliente_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            {{ form.sucursal_id.label(class="form-label small font-weight-bold text-uppercase text-muted") }}
+                            {{ form.sucursal_id(class="form-control select2" + (' is-invalid' if form.sucursal_id.errors else '')) }}
+                            {% for error in form.sucursal_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="form-group mb-3">
+                            {{ form.equipo_id.label(class="form-label small font-weight-bold text-uppercase text-muted") }}
+                            {{ form.equipo_id(class="form-control select2" + (' is-invalid' if form.equipo_id.errors else '')) }}
+                            {% for error in form.equipo_id.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                            <small id="equipoInfo" class="form-text text-muted">Seleccione un equipo para ver detalles</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="form-group">
+                            {{ form.equipo_info.label(class="form-label small font-weight-bold text-uppercase text-muted") }}
+                            {{ form.equipo_info(class="form-control bg-light" + (' is-invalid' if form.equipo_info.errors else '')) }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tarjeta de Contadores -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-tachometer-alt me-2"></i>Contadores de Impresiones
+                </h6>
+                <div class="text-muted small">
+                    Último conteo: <span id="fechaUltimoConteo">Nunca</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered table-hover">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="text-center align-middle">Tipo</th>
+                                <th class="text-center align-middle">Anterior</th>
+                                <th class="text-center align-middle">Actual</th>
+                                <th class="text-center align-middle">Diferencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Fila de Impresiones -->
+                            <tr>
+                                <td class="text-center align-middle font-weight-bold">Impresiones</td>
+                                <td>
+                                    {{ form.contador_impresiones_anterior(class="form-control-plaintext text-center" + (' is-invalid' if form.contador_impresiones_anterior.errors else ''), readonly=true) }}
+                                </td>
+                                <td>
+                                    {{ form.contador_impresiones_actual(class="form-control text-center" + (' is-invalid' if form.contador_impresiones_actual.errors else ''), min="0") }}
+                                    {% for error in form.contador_impresiones_actual.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {{ form.diferencia_impresiones(class="form-control-plaintext text-center font-weight-bold text-primary" + (' is-invalid' if form.diferencia_impresiones.errors else ''), readonly=true) }}
+                                </td>
+                            </tr>
+                            
+                            <!-- Fila de Escaneos -->
+                            <tr>
+                                <td class="text-center align-middle font-weight-bold">Escaneos</td>
+                                <td>
+                                    {{ form.contador_escaneos_anterior(class="form-control-plaintext text-center" + (' is-invalid' if form.contador_escaneos_anterior.errors else ''), readonly=true) }}
+                                </td>
+                                <td>
+                                    {{ form.contador_escaneos_actual(class="form-control text-center" + (' is-invalid' if form.contador_escaneos_actual.errors else ''), min="0") }}
+                                    {% for error in form.contador_escaneos_actual.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {{ form.diferencia_escaneos(class="form-control-plaintext text-center font-weight-bold text-primary" + (' is-invalid' if form.diferencia_escaneos.errors else ''), readonly=true) }}
+                                </td>
+                            </tr>
+                            
+                            <!-- Fila de Copias -->
+                            <tr>
+                                <td class="text-center align-middle font-weight-bold">Copias</td>
+                                <td>
+                                    {{ form.contador_copias_anterior(class="form-control-plaintext text-center" + (' is-invalid' if form.contador_copias_anterior.errors else ''), readonly=true) }}
+                                </td>
+                                <td>
+                                    {{ form.contador_copias_actual(class="form-control text-center" + (' is-invalid' if form.contador_copias_actual.errors else ''), min="0") }}
+                                    {% for error in form.contador_copias_actual.errors %}
+                                        <div class="invalid-feedback d-block">{{ error }}</div>
+                                    {% endfor %}
+                                </td>
+                                <td>
+                                    {{ form.diferencia_copias(class="form-control-plaintext text-center font-weight-bold text-primary" + (' is-invalid' if form.diferencia_copias.errors else ''), readonly=true) }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tarjeta de Estado y Observaciones -->
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-clipboard-check me-2"></i>Estado del Equipo y Observaciones
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-4">
+                            {{ form.estado_equipo.label(class="form-label small font-weight-bold text-uppercase text-muted") }}
+                            {{ form.estado_equipo(class="form-control" + (' is-invalid' if form.estado_equipo.errors else '')) }}
+                            {% for error in form.estado_equipo.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="form-check form-switch mb-3">
+                            {{ form.requiere_mantenimiento(class="form-check-input" + (' is-invalid' if form.requiere_mantenimiento.errors else '')) }}
+                            {{ form.requiere_mantenimiento.label(class="form-check-label font-weight-bold") }}
+                            {% for error in form.requiere_mantenimiento.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="form-group" id="problemasContainer">
+                            {{ form.problemas_detectados.label(class="form-label small font-weight-bold text-uppercase text-muted") }}
+                            {{ form.problemas_detectados(class="form-control" + (' is-invalid' if form.problemas_detectados.errors else ''), rows="3") }}
+                            <small class="form-text text-muted">Describa los problemas detectados que requieren atención</small>
+                            {% for error in form.problemas_detectados.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="form-group h-100">
+                            {{ form.observaciones.label(class="form-label small font-weight-bold text-uppercase text-muted") }}
+                            {{ form.observaciones(class="form-control h-75" + (' is-invalid' if form.observaciones.errors else ''), rows="8") }}
+                            <small class="form-text text-muted">Ingrese cualquier observación adicional sobre el conteo</small>
+                            {% for error in form.observaciones.errors %}
+                                <div class="invalid-feedback d-block">{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Botones de Acción -->
+        <div class="row mb-4">
+            <div class="col-12 text-end">
+                {{ form.cancelar }}
+                {{ form.submit }}
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="{{ url_for('static', filename='vendor/select2/js/select2.full.min.js') }}"></script>
+<script src="{{ url_for('static', filename='js/conteo_impresiones.js') }}"></script>
+<script>
+$(document).ready(function() {
+    // Inicializar select2
+    $('.select2').select2({
+        theme: 'bootstrap4',
+        width: '100%',
+        placeholder: 'Seleccione una opción',
+        allowClear: true
+    });
+    
+    // Mostrar/ocultar campo de problemas según checkbox de mantenimiento
+    function toggleMantenimiento() {
+        if ($('#requiere_mantenimiento').is(':checked')) {
+            $('#problemas_detectados').prop('disabled', false);
+            $('#problemasContainer').show();
+        } else {
+            $('#problemas_detectados').prop('disabled', true);
+            $('#problemasContainer').hide();
+        }
+    }
+    
+    // Ejecutar al cargar la página
+    toggleMantenimiento();
+    
+    // Manejar cambios en el checkbox
+    $('#requiere_mantenimiento').change(toggleMantenimiento);
+    
+    // Manejar envío del formulario
+    $('#conteoForm').on('submit', function(e) {
+        // Validar que al menos un contador sea mayor a cero
+        const impresiones = parseInt($('#contador_impresiones_actual').val()) || 0;
+        const escaneos = parseInt($('#contador_escaneos_actual').val()) || 0;
+        const copias = parseInt($('#contador_copias_actual').val()) || 0;
+        
+        if (impresiones === 0 && escaneos === 0 && copias === 0) {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Error',
+                text: 'Al menos un contador debe tener un valor mayor a cero',
+                icon: 'error',
+                confirmButtonText: 'Entendido'
+            });
+            return false;
+        }
+        
+        // Validar que si requiere mantenimiento, se hayan especificado problemas
+        if ($('#requiere_mantenimiento').is(':checked') && $('#problemas_detectados').val().trim() === '') {
+            e.preventDefault();
+            Swal.fire({
+                title: 'Campo requerido',
+                text: 'Debe especificar los problemas detectados cuando se requiere mantenimiento',
+                icon: 'warning',
+                confirmButtonText: 'Entendido'
+            });
+            return false;
+        }
+        
+        // Mostrar confirmación antes de enviar
+        e.preventDefault();
+        Swal.fire({
+            title: '¿Guardar conteo?',
+            text: '¿Está seguro de que desea guardar este conteo?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, guardar',
+            cancelButtonText: 'Cancelar',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                // Deshabilitar botones para evitar múltiples envíos
+                $('button[type="submit"]').prop('disabled', true);
+                $('form#conteoForm').off('submit').submit();
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+        }
+        
+        // Validar que si requiere mantenimiento, se hayan especificado problemas
+        if ($('#requiere_mantenimiento').is(':checked') && !$('#problemas_detectados').val().trim()) {
+            e.preventDefault();
+            alert('Debe especificar los problemas detectados ya que marcó que requiere mantenimiento.');
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

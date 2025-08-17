@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block title %}{% block page_title %}{% endblock %} - Conteo de Impresiones{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.index') }}">Inicio</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('conteos.listar') }}">Conteo de Impresiones</a></li>
+                    {% block breadcrumb_items %}{% endblock %}
+                </ol>
+            </nav>
+            
+            <div class="card shadow mb-4">
+                <div class="card-header py-3 d-flex justify-content-between align-items-center">
+                    <h5 class="m-0 font-weight-bold text-primary">
+                        <i class="fas fa-print fa-fw me-2"></i>
+                        {% block card_title %}{% endblock %}
+                    </h5>
+                    {% block card_actions %}{% endblock %}
+                </div>
+                <div class="card-body">
+                    {% block card_content %}{% endblock %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// JavaScript para manejar la interactividad del formulario
+$(document).ready(function() {
+    // Habilitar/deshabilitar campo de problemas según el checkbox
+    $('#requiere_mantenimiento').change(function() {
+        if($(this).is(':checked')) {
+            $('#problemas_detectados').prop('disabled', false);
+            $('#problemas_detectados').prop('required', true);
+        } else {
+            $('#problemas_detectados').prop('disabled', true);
+            $('#problemas_detectados').prop('required', false);
+            $('#problemas_detectados').val('');
+        }
+    });
+    
+    // Cargar sucursales cuando cambia el cliente
+    $('#cliente_id').change(function() {
+        const clienteId = $(this).val();
+        if (clienteId) {
+            $.get(`/api/sucursales/${clienteId}`, function(data) {
+                const $sucursalSelect = $('#sucursal_id');
+                $sucursalSelect.empty();
+                $sucursalSelect.append('<option value="0">Seleccione una sucursal</option>');
+                
+                data.sucursales.forEach(function(sucursal) {
+                    $sucursalSelect.append(`<option value="${sucursal.id}">${sucursal.nombre}</option>`);
+                });
+                
+                // Limpiar equipos
+                $('#equipo_id').empty().append('<option value="0">Seleccione una sucursal primero</option>');
+                resetEquipoInfo();
+            });
+        } else {
+            $('#sucursal_id').empty().append('<option value="0">Seleccione un cliente primero</option>');
+            $('#equipo_id').empty().append('<option value="0">Seleccione una sucursal primero</option>');
+            resetEquipoInfo();
+        }
+    });
+    
+    // Cargar equipos (impresoras) cuando cambia la sucursal
+    $('#sucursal_id').change(function() {
+        const sucursalId = $(this).val();
+        if (sucursalId) {
+            $.get(`/api/equipos/${sucursalId}`, function(data) {
+                const $equipoSelect = $('#equipo_id');
+                $equipoSelect.empty();
+                $equipoSelect.append('<option value="0">Seleccione una impresora</option>');
+                
+                data.equipos.forEach(function(equipo) {
+                    $equipoSelect.append(`<option value="${equipo.id}" 
+                        data-ultimo-conteo="${equipo.ultimo_conteo}"
+                        data-ultimo-escaneo="${equipo.ultimo_escaneo}"
+                        data-fecha-ultimo-conteo="${equipo.fecha_ultimo_conteo}">
+                        ${equipo.nombre}
+                    </option>`);
+                });
+                
+                resetEquipoInfo();
+            });
+        } else {
+            $('#equipo_id').empty().append('<option value="0">Seleccione una sucursal primero</option>');
+            resetEquipoInfo();
+        }
+    });
+    
+    // Manejar cambio de equipo (impresora) seleccionado
+    $(document).on('change', '#equipo_id', function() {
+        const selectedOption = $(this).find('option:selected');
+        const ultimoConteo = selectedOption.data('ultimo-conteo') || 0;
+        const ultimoEscaneo = selectedOption.data('ultimo-escaneo') || 0;
+        const fechaUltimoConteo = selectedOption.data('fecha-ultimo-conteo') || 'Nunca';
+        
+        if ($(this).val() !== '0') {
+            $('#info-ultimo-conteo').text(`Último conteo: ${ultimoConteo} (${fechaUltimoConteo})`);
+            $('#contador_impresiones').attr('placeholder', `Último: ${ultimoConteo}`);
+            $('#contador_escaneos').attr('placeholder', `Último: ${ultimoEscaneo}`);
+            $('#contador_impresiones').focus();
+        } else {
+            $('#info-ultimo-conteo').text('Seleccione una impresora');
+            $('#contador_impresiones').attr('placeholder', 'Ingrese el contador actual');
+            $('#contador_escaneos').attr('placeholder', 'Ingrese el contador de escaneos');
+        }
+    });
+    
+    // Función para restablecer la información del equipo (impresora)
+    function resetEquipoInfo() {
+        $('#info-ultimo-conteo').text('Seleccione una impresora');
+        $('#contador_impresiones').val('').attr('placeholder', 'Ingrese el contador actual');
+        $('#contador_escaneos').val('').attr('placeholder', 'Ingrese el contador de escaneos');
+    }
+    
+    // Inicializar el estado del campo de problemas
+    if ($('#requiere_mantenimiento').is(':checked')) {
+        $('#problemas_detectados').prop('disabled', false).prop('required', true);
+    } else {
+        $('#problemas_detectados').prop('disabled', true).prop('required', false);
+    }
+});
+</script>
+{% endblock %}

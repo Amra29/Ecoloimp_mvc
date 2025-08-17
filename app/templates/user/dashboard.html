@@ -1,0 +1,69 @@
+{% extends "base_ecoloimp.html" %}
+
+{% block title %}Panel de Usuario - Ecoloimp{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2>Bienvenido, {{ current_user.nombre }} {{ current_user.apellido }}</h2>
+            <hr>
+        </div>
+    </div>
+
+    <!-- Estadísticas -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card text-white bg-primary">
+                <div class="card-body">
+                    <h5 class="card-title">Clientes Activos</h5>
+                    <p class="card-text display-4">{{ total_clientes }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Últimas Solicitudes -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Últimas Solicitudes</h5>
+                </div>
+                <div class="card-body">
+                    {% if solicitudes_recientes %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Fecha</th>
+                                        <th>Descripción</th>
+                                        <th>Estado</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for solicitud in solicitudes_recientes %}
+                                    <tr>
+                                        <td>{{ solicitud.id }}</td>
+                                        <td>{{ solicitud.fecha_solicitud.strftime('%d/%m/%Y %H:%M') }}</td>
+                                        <td>{{ solicitud.descripcion|truncate(50) }}</td>
+                                        <td>
+                                            <span class="badge {% if solicitud.estado == 'pendiente' %}bg-warning{% elif solicitud.estado == 'completada' %}bg-success{% else %}bg-info{% endif %}">
+                                                {{ solicitud.estado|title }}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No hay solicitudes recientes.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

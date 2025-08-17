@@ -1,0 +1,216 @@
+{% extends "admin/permisos/base.html" %}
+
+{% block header_title %}Gestión de Permisos{% endblock %}
+
+{% block header_actions %}
+    <div class="btn-group me-2">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#nuevoPermisoModal">
+            <i class="fas fa-plus me-1"></i> Nuevo Permiso
+        </button>
+    </div>
+{% endblock %}
+
+{% block admin_content %}
+<div class="card shadow mb-4">
+    <div class="card-header py-3">
+        <h6 class="m-0 font-weight-bold text-primary">Listado de Permisos</h6>
+    </div>
+    <div class="card-body">
+        <!-- Filtros -->
+        <form method="get" class="mb-4">
+            <div class="row g-3">
+                <div class="col-md-4">
+                    <input type="text" class="form-control" name="buscar" placeholder="Buscar permisos..." 
+                           value="{{ request.args.get('buscar', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" name="rol">
+                        <option value="">Todos los roles</option>
+                        {% for rol in roles %}
+                        <option value="{{ rol }}" {% if request.args.get('rol') == rol %}selected{% endif %}>
+                            {{ rol|title }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-search me-1"></i> Buscar
+                    </button>
+                </div>
+                <div class="col-md-2">
+                    <a href="{{ url_for('admin_permisos.listar_permisos') }}" class="btn btn-outline-secondary w-100">
+                        <i class="fas fa-sync-alt me-1"></i> Limpiar
+                    </a>
+                </div>
+            </div>
+        </form>
+
+        <!-- Tabla de permisos -->
+        <div class="table-responsive">
+            <table class="table table-bordered table-hover" id="tablaPermisos" width="100%" cellspacing="0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Nombre</th>
+                        <th>Descripción</th>
+                        <th>Roles</th>
+                        <th>Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for permiso in permisos %}
+                    <tr>
+                        <td>
+                            <strong>{{ permiso.nombre }}</strong>
+                        </td>
+                        <td>{{ permiso.descripcion or 'Sin descripción' }}</td>
+                        <td>
+                            {% set roles_permiso = [] %}
+                            {% for rp in permiso.roles %}
+                                {% set _ = roles_permiso.append(rp.rol) %}
+                            {% endfor %}
+                            
+                            {% for rol in roles %}
+                                {% if rol in roles_permiso %}
+                                    <span class="badge bg-primary me-1">{{ rol|title }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                                <button type="button" class="btn btn-outline-primary" 
+                                        data-bs-toggle="modal" data-bs-target="#editarPermisoModal{{ permiso.id }}"
+                                        title="Editar permiso">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button type="button" class="btn btn-outline-danger"
+                                        onclick="return confirm('¿Está seguro de eliminar este permiso? Esta acción no se puede deshacer.')"
+                                        title="Eliminar permiso">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Modal Editar Permiso -->
+                            <div class="modal fade" id="editarPermisoModal{{ permiso.id }}" tabindex="-1" 
+                                 aria-labelledby="editarPermisoModalLabel{{ permiso.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form action="#" method="post">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="editarPermisoModalLabel{{ permiso.id }}">
+                                                    Editar Permiso
+                                                </h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="nombre{{ permiso.id }}" class="form-label">Nombre</label>
+                                                    <input type="text" class="form-control" id="nombre{{ permiso.id }}" 
+                                                           name="nombre" value="{{ permiso.nombre }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label for="descripcion{{ permiso.id }}" class="form-label">Descripción</label>
+                                                    <textarea class="form-control" id="descripcion{{ permiso.id }}" 
+                                                              name="descripcion" rows="3">{{ permiso.descripcion or '' }}</textarea>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Asignar a roles</label>
+                                                    <div class="border p-2 rounded">
+                                                        {% for rol in roles %}
+                                                        <div class="form-check">
+                                                            <input class="form-check-input" type="checkbox" 
+                                                                   name="roles" value="{{ rol }}" id="rol_{{ rol }}_{{ permiso.id }}"
+                                                                   {% if rol in roles_permiso %}checked{% endif %}>
+                                                            <label class="form-check-label" for="rol_{{ rol }}_{{ permiso.id }}">
+                                                                {{ rol|title }}
+                                                            </label>
+                                                        </div>
+                                                        {% endfor %}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                                <button type="submit" class="btn btn-primary">Guardar cambios</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="4" class="text-center">No se encontraron permisos</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Nuevo Permiso -->
+<div class="modal fade" id="nuevoPermisoModal" tabindex="-1" aria-labelledby="nuevoPermisoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form action="#" method="post">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="nuevoPermisoModalLabel">Nuevo Permiso</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="nombre" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="nombre" name="nombre" required>
+                        <div class="form-text">Usa formato: ver_entidad, crear_entidad, etc.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="descripcion" class="form-label">Descripción</label>
+                        <textarea class="form-control" id="descripcion" name="descripcion" rows="3"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Asignar a roles</label>
+                        <div class="border p-2 rounded">
+                            {% for rol in roles %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       name="roles" value="{{ rol }}" id="rol_{{ rol }}">
+                                <label class="form-check-label" for="rol_{{ rol }}">
+                                    {{ rol|title }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Permiso</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<!-- DataTables -->
+<link href="https://cdn.datatables.net/1.11.5/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+<script src="https://cdn.datatables.net/1.11.5/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.11.5/js/dataTables.bootstrap5.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Inicializar DataTable
+        $('#tablaPermisos').DataTable({
+            "language": {
+                "url": "//cdn.datatables.net/plug-ins/1.11.5/i18n/es-ES.json"
+            },
+            "order": [[0, "asc"]],
+            "pageLength": 25
+        });
+    });
+</script>
+{% endblock %}

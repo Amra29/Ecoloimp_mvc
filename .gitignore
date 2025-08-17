@@ -1,0 +1,276 @@
+# Entornos virtuales
+venv/
+env/
+.env
+.venv
+env.bak/
+venv.bak/
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Archivos de entornos de desarrollo
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Archivos de base de datos
+*.sqlite
+*.sqlite3
+*.db
+instance/
+
+# Archivos de entorno
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Archivos de caché y logs
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Archivos de configuración local
+*.log
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+
+# Archivos de sistema operativo
+.DS_Store
+Thumbs.db
+
+# Archivos de Jupyter Notebook
+.ipynb_checkpoints
+
+# Archivos de Node (si hay frontend)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Directorios de build y distribución
+build/
+dist/
+*.egg-info/
+
+# Archivos de configuración de IDEs
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Archivos de configuración específicos de herramientas
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+
+# Archivos de configuración de Python
+.python-version
+
+# Archivos temporales
+*.swp
+*.swo
+*~
+
+# Archivos de configuración de VS Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Archivos de configuración de PyCharm
+.idea/
+.idea_modules/
+
+# Archivos de configuración de Jupyter
+.ipynb_checkpoints
+
+# Archivos de configuración de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de distribución / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Archivos de entorno virtual
+ENV/
+
+# Archivos de configuración de SQLite
+*.sqlite3
+
+# Archivos de configuración de Flask
+instance/
+.webassets-cache
+
+# Archivos de cobertura
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+htmlcov/
+
+# Archivos de configuración de Sphinx
+docs/_build/
+
+# Archivos de configuración de PyBuilder
+target/
+
+# Archivos de configuración de Jupyter Notebook
+.ipynb_checkpoints
+
+# Archivos de configuración de IPython
+profile_default/
+ipython_config.py
+
+# Archivos de configuración de pyenv
+.python-version
+
+# Archivos de configuración de pipenv
+#   Porque esto es específico de la máquina del desarrollador
+Pipfile.lock
+
+# Archivos de configuración de poetry
+#   Similar a Pipfile.lock, es mejor para los paquetes de producción
+poetry.lock
+
+# Archivos de configuración de Pyre
+.pyre/
+
+# Archivos de configuración de PyCharm
+.idea/
+*.iml
+.idea_modules/
+
+# Archivos de configuración de Visual Studio Code
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Archivos de configuración de Spyder
+.spyderproject
+.spyproject
+
+# Archivos de configuración de Rope
+.ropeproject
+
+# Archivos de configuración de mkdocs
+docs/_build/
+
+# Archivos de configuración de Jupyter
+.jupyter/
+
+# Archivos de configuración de VS Code
+.history
+
+# Archivos de configuración de PyCharm
+.idea/
+
+# Archivos de configuración de Visual Studio Code
+.vscode/
+
+# Archivos de configuración de Jupyter Notebook
+.ipynb_checkpoints
+
+# Archivos de configuración de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos de distribución / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Archivos de entorno virtual
+ENV/
+
+# Archivos de configuración de SQLite
+*.sqlite3
+
+# Archivos de configuración de Flask
+instance/
+.webassets-cache
+
+# Archivos de cobertura
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+cover/
+htmlcov/

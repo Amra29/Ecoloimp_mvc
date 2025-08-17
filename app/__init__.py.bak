@@ -1,0 +1,199 @@
+from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect
+from flask_migrate import Migrate
+from config import Config
+import os
+
+# Importar comandos personalizados
+from . import commands
+
+# Inicializar extensiones
+db = SQLAlchemy()
+login_manager = LoginManager()
+csrf = CSRFProtect()
+migrate = Migrate()
+
+
+def create_app(config_class=Config):
+    app = Flask(__name__)
+    app.config.from_object(config_class)
+
+    # Asegurar que el directorio de instancia exista
+    os.makedirs(app.instance_path, exist_ok=True)
+    
+    # Configurar directorio para subidas
+    upload_folder = os.path.join(app.instance_path, 'uploads')
+    os.makedirs(upload_folder, exist_ok=True)
+    app.config['UPLOAD_FOLDER'] = upload_folder
+
+    # Inicializar extensiones con la app
+    db.init_app(app)
+    csrf.init_app(app)
+    migrate.init_app(app, db, render_as_batch=True)
+    
+    # Configurar SQLite en modo WAL para mejor concurrencia
+    with app.app_context():
+        engine = db.engine
+        if engine.dialect.name == 'sqlite':
+            from sqlalchemy import event
+            @event.listens_for(engine, 'connect')
+            def set_sqlite_pragma(dbapi_connection, connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute('PRAGMA journal_mode=WAL')
+                cursor.execute('PRAGMA synchronous=NORMAL')
+                cursor.execute('PRAGMA foreign_keys=ON')
+                cursor.close()
+    
+    login_manager.init_app(app)
+
+    # Configurar Flask-Login
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = 'Debe iniciar sesión para acceder a esta página.'
+    login_manager.login_message_category = 'info'
+    login_manager.session_protection = 'strong'
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        from app.models.models import Usuario
+        return db.session.get(Usuario, int(user_id))
+
+    # Importar blueprints
+    from app.controllers.main import main_bp
+    from app.controllers.auth import auth_bp
+    from app.conteo_impresiones import bp as conteo_impresiones_bp
+    from app.controllers.facturas import facturas_bp
+    from app.controllers.servicios import servicios_bp
+    from app.controllers.tecnicos import tecnicos_bp
+    from app.controllers.usuarios import usuarios_bp
+    from app.controllers.partes import partes_bp
+    from app.controllers.reportes import reportes_bp
+    from app.controllers.admin import admin_bp
+    from app.controllers.solicitudes import solicitudes_bp
+
+    # Register blueprints
+    app.register_blueprint(main_bp)
+    app.register_blueprint(auth_bp, url_prefix='/auth')
+    app.register_blueprint(conteo_impresiones_bp, url_prefix='/conteo_impresiones')
+    app.register_blueprint(facturas_bp, url_prefix='/facturas')
+    app.register_blueprint(servicios_bp, url_prefix='/servicios')
+    app.register_blueprint(tecnicos_bp, url_prefix='/tecnicos')
+    app.register_blueprint(usuarios_bp, url_prefix='/usuarios')
+    app.register_blueprint(partes_bp, url_prefix='/partes')
+    app.register_blueprint(reportes_bp, url_prefix='/reportes')
+    app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(solicitudes_bp, url_prefix='/solicitudes')
+    
+    # Importar y registrar el blueprint de clientes
+    from app.controllers.clientes import clientes_bp
+    app.register_blueprint(clientes_bp, url_prefix='/clientes')
+    
+    # Importar y registrar el blueprint de asignaciones
+    from app.controllers.asignaciones import asignaciones_bp
+    app.register_blueprint(asignaciones_bp, url_prefix='/asignaciones')
+
+    # Registrar comandos personalizados
+    commands.init_app(app)
+    
+    # Create app context
+    with app.app_context():
+        # Importar modelos para asegurar que están registrados con SQLAlchemy
+        # Esto es necesario para que db.create_all() reconozca todos los modelos
+        from app.models.models import (
+            Usuario, Sucursal, Tecnico, Administrador, Cliente, 
+            Solicitud, Servicio, Asignacion, Reporte, Parte, 
+            PedidoPieza, Factura, Equipo, Visita, Conteo
+        )
+        
+        # 1. Crear todas las tablas necesarias
+        # db.create_all() es suficiente para crear todas las tablas en el orden correcto
+        # ya que SQLAlchemy maneja automáticamente las dependencias
+        db.create_all()
+        
+        # 2. Ejecutar migraciones personalizadas si son necesarias
+        from app.migrations import run_migrations
+        run_migrations()
+        
+        # 3. Crear datos iniciales
+        create_initial_data()
+        
+        # 4. Confirmar todos los cambios
+        try:
+            db.session.commit()
+            if app.debug:
+                print("Aplicación inicializada correctamente")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error al inicializar la base de datos: {e}")
+            # Relanzar la excepción para que el usuario esté al tanto del error
+            if not app.debug:
+                raise
+
+    return app
+
+
+def create_initial_data():
+    """Crea datos iniciales si no existen"""
+    from app.models.models import db, Usuario, Administrador, Cliente, Servicio, Parte
+    
+    # Solo crear un administrador si no existe
+    admin = Usuario.query.filter_by(email='admin@servicio.com').first()
+    if not admin:
+        admin = Administrador(
+            nombre='Administrador',
+            email='admin@servicio.com',
+            telefono='1234567890',
+            activo=True
+        )
+        admin.set_password('admin123')
+        db.session.add(admin)
+        db.session.commit()
+    
+    # Crear tablas necesarias si no existen
+    db.create_all()
+
+    # Crear algunos clientes de ejemplo si no existen
+    if Cliente.query.count() == 0:
+        clientes_ejemplo = [
+            Cliente(nombre='Juan Pérez', email='juan@email.com', telefono='3001234567',
+                   direccion='Calle 123 #45-67', contacto_principal='Juan Pérez', activo=True),
+            Cliente(nombre='Empresa ABC S.A.S.', email='contacto@abc.com', telefono='3012345678',
+                   direccion='Carrera 45 #12-34', contacto_principal='Carlos López', activo=True)
+        ]
+        for cliente in clientes_ejemplo:
+            db.session.add(cliente)
+        db.session.commit()
+
+    # Crear algunos servicios de ejemplo si no existen
+    if Servicio.query.count() == 0:
+        servicios_ejemplo = [
+            Servicio(nombre='Mantenimiento Preventivo', descripcion='Mantenimiento preventivo de equipos',
+                     precio_base=50000, categoria='Mantenimiento'),
+            Servicio(nombre='Reparación de Hardware', descripcion='Reparación de componentes de hardware',
+                     precio_base=80000, categoria='Reparación')
+        ]
+        for servicio in servicios_ejemplo:
+            db.session.add(servicio)
+        db.session.commit()
+
+    # Crear algunas partes de ejemplo si no existen
+    if Parte.query.count() == 0:
+        partes_ejemplo = [
+            Parte(nombre='Memoria RAM DDR4 8GB', codigo='RAM-DDR4-8GB',
+                  descripcion='Memoria RAM DDR4 de 8GB', precio=180000, stock=25,
+                  stock_minimo=5, proveedor='TechSupply'),
+            Parte(nombre='Disco SSD 240GB', codigo='SSD-240GB',
+                  descripcion='Disco de estado sólido 240GB', precio=220000, stock=15,
+                  stock_minimo=3, proveedor='StoragePro')
+        ]
+        for parte in partes_ejemplo:
+            db.session.add(parte)
+        db.session.commit()
+    try:
+        print("[OK] Datos iniciales creados correctamente")
+    except Exception as e:
+        print(f"[ERROR] Error creando datos iniciales: {e}")
+        db.session.rollback()
+    finally:
+        db.session.commit()

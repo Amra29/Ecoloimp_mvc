@@ -1,0 +1,245 @@
+{% extends "conteo_impresiones/base.html" %}
+
+{% block page_title %}Detalles del Conteo{% endblock %}
+
+{% block breadcrumb_items %}
+    <li class="breadcrumb-item">
+        <a href="{{ url_for('conteo_impresiones.index') }}">Conteos</a>
+    </li>
+    <li class="breadcrumb-item active">Detalles #{{ conteo.id }}</li>
+{% endblock %}
+
+{% block card_title %}
+    <i class="fas fa-print me-2"></i>Detalles del Conteo #{{ conteo.id }}
+{% endblock %}
+
+{% block card_actions %}
+    <div class="d-flex">
+        <a href="{{ url_for('conteos.historial_equipo', equipo_id=conteo.equipo_id) }}" 
+           class="btn btn-info btn-sm me-2">
+            <i class="fas fa-history me-1"></i> Historial
+        </a>
+        <a href="{{ url_for('conteos.nuevo') }}?equipo_id={{ conteo.equipo_id }}" 
+           class="btn btn-primary btn-sm">
+            <i class="fas fa-plus me-1"></i> Nuevo Conteo
+        </a>
+    </div>
+{% endblock %}
+
+{% block card_content %}
+<div class="row">
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-info-circle me-1"></i>Información del Conteo
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th class="text-nowrap" style="width: 40%;">Fecha y Hora</th>
+                            <td>{{ conteo.fecha_conteo.strftime('%d/%m/%Y %H:%M') }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-nowrap">Técnico</th>
+                            <td>{{ conteo.tecnico.nombre }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-nowrap">Estado</th>
+                            <td>
+                                {% if conteo.requiere_mantenimiento %}
+                                    <span class="badge bg-danger">Requiere Mantenimiento</span>
+                                {% else %}
+                                    <span class="badge bg-success">Normal</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-nowrap">Aprobado por Cliente</th>
+                            <td>
+                                {% if conteo.aprobado_por_cliente %}
+                                    <a href="{{ url_for('conteo_impresiones.index') }}" class="btn btn-secondary">
+                                        <i class="fas fa-arrow-left me-2"></i>Volver
+                                    </a>
+                                    {{ conteo.nombre_aprobador or 'Cliente' }}
+                                    {% if conteo.firma_aprobador %}
+                                        <button class="btn btn-sm btn-link p-0 ms-2" data-bs-toggle="modal" data-bs-target="#firmaModal">
+                                            <i class="fas fa-signature text-primary"></i> Ver firma
+                                        </button>
+                                    {% endif %}
+                                {% else %}
+                                    <span class="text-muted">No aprobado</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-tachometer-alt me-1"></i>Contadores
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Tipo</th>
+                                <th class="text-end">Contador Anterior</th>
+                                <th class="text-end">Contador Actual</th>
+                                <th class="text-end">Diferencia</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Impresiones</td>
+                                <td class="text-end">{{ "{:,}".format(conteo.contador_impresiones - conteo.impresiones_desde_ultimo) }}</td>
+                                <td class="text-end fw-bold">{{ "{:,}".format(conteo.contador_impresiones) }}</td>
+                                <td class="text-end {{ 'text-success' if conteo.impresiones_desde_ultimo > 0 else 'text-muted' }}">
+                                    {{ "+{:,}".format(conteo.impresiones_desde_ultimo) if conteo.impresiones_desde_ultimo > 0 else '0' }}
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>Escaneos</td>
+                                <td class="text-end">{{ "{:,}".format(conteo.contador_escaneos - conteo.escaneos_desde_ultimo) }}</td>
+                                <td class="text-end fw-bold">{{ "{:,}".format(conteo.contador_escaneos) }}</td>
+                                <td class="text-end {{ 'text-success' if conteo.escaneos_desde_ultimo > 0 else 'text-muted' }}">
+                                    {{ "+{:,}".format(conteo.escaneos_desde_ultimo) if conteo.escaneos_desde_ultimo > 0 else '0' }}
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-6">
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-print me-1"></i>Información del Equipo
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <tr>
+                            <th class="text-nowrap" style="width: 40%;">Nombre</th>
+                            <td>{{ conteo.equipo.nombre }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-nowrap">Marca/Modelo</th>
+                            <td>{{ conteo.equipo.marca }} {{ conteo.equipo.modelo }}</td>
+                        </tr>
+                        {% if conteo.equipo.numero_serie %}
+                        <tr>
+                            <th class="text-nowrap">Número de Serie</th>
+                            <td>{{ conteo.equipo.numero_serie }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th class="text-nowrap">Tipo</th>
+                            <td>{{ conteo.equipo.tipo_equipo|title if conteo.equipo.tipo_equipo else 'No especificado' }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-nowrap">Cliente</th>
+                            <td>{{ conteo.equipo.cliente.nombre if conteo.equipo.cliente else 'No asignado' }}</td>
+                        </tr>
+                        <tr>
+                            <th class="text-nowrap">Sucursal</th>
+                            <td>{{ conteo.equipo.sucursal.nombre if conteo.equipo.sucursal else 'No asignada' }}</td>
+                        </tr>
+                        {% if conteo.equipo.ubicacion %}
+                        <tr>
+                            <th class="text-nowrap">Ubicación</th>
+                            <td>{{ conteo.equipo.ubicacion }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th class="text-nowrap">Estado</th>
+                            <td>
+                                {% if conteo.equipo.activo %}
+                                    <span class="badge bg-success">Activo</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Inactivo</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+        
+        {% if conteo.observaciones or conteo.requiere_mantenimiento %}
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">
+                    <i class="fas fa-clipboard me-1"></i>Observaciones
+                </h6>
+            </div>
+            <div class="card-body">
+                {% if conteo.observaciones %}
+                <div class="mb-3">
+                    <h6 class="small font-weight-bold text-uppercase text-muted mb-2">Notas del Técnico</h6>
+                    <p class="mb-0">{{ conteo.observaciones }}</p>
+                </div>
+                {% endif %}
+                
+                {% if conteo.requiere_mantenimiento %}
+                <div class="mt-3 pt-3 border-top">
+                    <h6 class="small font-weight-bold text-uppercase text-danger mb-2">
+                        <i class="fas fa-exclamation-triangle me-1"></i> Requiere Mantenimiento
+                    </h6>
+                    <p class="mb-0">{{ conteo.problemas_detectados }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal para mostrar la firma -->
+{% if conteo.firma_aprobador %}
+<div class="modal fade" id="firmaModal" tabindex="-1" aria-labelledby="firmaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="firmaModalLabel">Firma de Aprobación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body text-center">
+                <p class="text-muted mb-3">Firma de {{ conteo.nombre_aprobador or 'Cliente' }}</p>
+                <div class="border rounded p-3 mb-3" style="background-color: #f8f9fa;">
+                    <img src="{{ conteo.firma_aprobador }}" alt="Firma de aprobación" class="img-fluid">
+                </div>
+                <p class="small text-muted mb-0">Fecha: {{ conteo.fecha_conteo.strftime('%d/%m/%Y %H:%M') }}</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+// Inicializar tooltips
+$(document).ready(function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
