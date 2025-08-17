@@ -383,8 +383,8 @@ class Usuario(db.Model, UserMixin):
             
         # Verificar permisos según el modo (todos/cualquiera)
         if todos:
-            return all(# Removed duplicate: self.tiene_permiso(p) for p in permisos)
-        return any(# Removed duplicate: self.tiene_permiso(p) for p in permisos)
+            return all(self.tiene_permiso(p) for p in permisos)
+        return any(self.tiene_permiso(p) for p in permisos)
     
     def obtener_permisos(self):
         """
@@ -469,7 +469,7 @@ class Usuario(db.Model, UserMixin):
                     )
         
         # Convertir defaultdict a dict regular para evitar comportamientos inesperados
-#         return dict(permisos_por_categoria)  # Removed duplicate
+        return dict(permisos_por_categoria)
         
     # Otros métodos...
     
@@ -486,7 +486,7 @@ class Usuario(db.Model, UserMixin):
         """
         # Construir el nombre del permiso (ej: 'usuario_editar')
         permiso = f"{objeto}_{accion}".lower()
-        return # Removed duplicate: self.tiene_permiso(permiso)
+        return self.tiene_permiso(permiso)
         
     def puede_ver(self, recurso):
         """
@@ -536,14 +536,14 @@ class Usuario(db.Model, UserMixin):
         """
         return self.tiene_permiso_objeto(recurso, 'crear')
             
-#         return dict(permisos_por_categoria)  # Removed duplicate
+        return dict(permisos_por_categoria)
         
     def __repr__(self):
         return f'<Usuario {self.email} ({self.rol})>'
         
     def agregar_permiso(self, nombre_permiso):
         """Agrega un permiso al rol del usuario"""
-        if not # Removed duplicate: self.tiene_permiso(nombre_permiso):
+        if not self.tiene_permiso(nombre_permiso):
             permiso = Permiso.query.filter_by(nombre=nombre_permiso).first()
             if not permiso:
                 permiso = Permiso(nombre=nombre_permiso, descripcion=f'Permiso para {nombre_permiso}')
@@ -556,7 +556,7 @@ class Usuario(db.Model, UserMixin):
             return True
         return False
     
-    # Removed duplicate: def __repr__(self):
+    def __repr__(self):
         return f'<Usuario {self.nombre} ({self.rol})>'
 
 
