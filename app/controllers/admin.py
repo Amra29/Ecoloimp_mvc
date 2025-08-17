@@ -80,7 +80,7 @@ def gestionar_pedidos():
     pedidos = query.order_by(PedidoPieza.fecha_pedido.desc()).paginate(
         page=page, per_page=10, error_out=False)
 
-    return render_template('admin/pedidos_piezas.html', pedidos=pedidos, estado_actual=estado)
+    return render_template('admin/pedidos/list.html', pedidos=pedidos, estado_actual=estado)
 
 
 @admin_bp.route('/pedido/<int:id>/aprobar', methods=['POST'])

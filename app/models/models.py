@@ -166,11 +166,12 @@ class Usuario(db.Model, UserMixin):
     """
     __tablename__ = 'usuarios'
     
-    # Roles del sistema
+    # Sistema de roles jerárquico
     ROLES = {
-        'superadmin': 'Super Administrador',
-        'admin': 'Administrador',
-        'tecnico': 'Técnico'
+        'superadmin': {'name': 'Super Administrador', 'level': 3},
+        'admin': {'name': 'Administrador', 'level': 2},
+        'tecnico': {'name': 'Técnico', 'level': 1},
+        'usuario': {'name': 'Usuario', 'level': 0}
     }
     
     id = db.Column(db.Integer, primary_key=True)
@@ -251,30 +252,21 @@ class Usuario(db.Model, UserMixin):
             
     def is_admin(self):
         """
-        Verifica si el usuario tiene rol de administrador.
+        Verifica si el usuario tiene rol de administrador o superior.
         
         Returns:
-            bool: True si el usuario es administrador, False en caso contrario
+            bool: True si el usuario es administrador o superadmin, False en caso contrario
         """
-        return self.rol == 'admin'
+        return self.ROLES.get(self.rol, {}).get('level', 0) >= self.ROLES['admin']['level']
         
     def is_tecnico(self):
         """
-        Verifica si el usuario tiene rol de tÈcnico.
+        Verifica si el usuario tiene rol de técnico o superior.
         
         Returns:
-            bool: True si es tÈcnico, False en caso contrario.
+            bool: True si el usuario es técnico, admin o superadmin, False en caso contrario
         """
-        return self.rol == 'tecnico'
-        
-    def is_superadmin(self):
-        """
-        Verifica si el usuario es superadministrador.
-        
-        Returns:
-            bool: True si es superadministrador, False en caso contrario.
-        """
-        return self.rol == 'superadmin'
+        return self.ROLES.get(self.rol, {}).get('level', 0) >= self.ROLES['tecnico']['level']
     
     # Métodos de Flask-Login
     def get_id(self):
@@ -286,20 +278,54 @@ class Usuario(db.Model, UserMixin):
     
     # Métodos de autorización
     def tiene_rol(self, *roles):
-        """Verifica si el usuario tiene alguno de los roles especificados"""
-        return self.rol in roles
+        """
+        Verifica si el usuario tiene alguno de los roles especificados o un rol superior.
+        
+        Args:
+            *roles: Nombres de roles a verificar
+            
+        Returns:
+            bool: True si el usuario tiene al menos uno de los roles especificados o superior, False en caso contrario
+        """
+        if not roles:
+            return False
+            
+        user_level = self.ROLES.get(self.rol, {}).get('level', 0)
+        
+        # Verificar si el nivel del usuario es mayor o igual al nivel mínimo requerido
+        min_required_level = min(
+            (self.ROLES.get(role, {}).get('level', float('inf')) for role in roles),
+            default=float('inf')
+        )
+        
+        return user_level >= min_required_level
     
     def es_superadmin(self):
-        """Verifica si el usuario es superadministrador"""
+        """
+        Verifica si el usuario es superadministrador.
+        
+        Returns:
+            bool: True si el usuario es superadministrador, False en caso contrario
+        """
         return self.rol == 'superadmin'
     
     def es_admin(self):
-        """Verifica si el usuario es administrador o superadministrador"""
-        return self.rol in ['admin', 'superadmin']
+        """
+        Verifica si el usuario es administrador o superadministrador.
+        
+        Returns:
+            bool: True si es admin o superadmin, False en caso contrario.
+        """
+        return self.is_admin()
     
     def es_tecnico(self):
-        """Verifica si el usuario es técnico"""
-        return self.rol == 'tecnico'
+        """
+        Verifica si el usuario es técnico o tiene un rol superior.
+        
+        Returns:
+            bool: True si es técnico, admin o superadmin, False en caso contrario.
+        """
+        return self.is_tecnico()
     
     def tiene_permiso(self, permiso_nombre):
         """
@@ -334,45 +360,83 @@ class Usuario(db.Model, UserMixin):
     
     def tiene_permisos(self, *permisos, todos=True):
         """
-        Verifica si el usuario tiene todos o alguno de los permisos especificados.
+        Verifica si el usuario tiene los permisos especificados.
         
         Args:
             *permisos: Nombres de permisos a verificar
-            todos (bool): Si es True, requiere que el usuario tenga todos los permisos.
+            todos (bool): Si es True (default), requiere que el usuario tenga todos los permisos.
                          Si es False, requiere que el usuario tenga al menos uno de los permisos.
+        
+        Returns:
+            bool: True si se cumplen las condiciones de los permisos, False en caso contrario.
+            
+        Notas:
+            - Los superadministradores siempre tienen todos los permisos.
+            - Los permisos se pueden asignar directamente al usuario o a su rol.
         """
+        # Superadmin tiene todos los permisos
+        if self.es_superadmin():
+            return True
+            
         if not permisos:
             return False
             
+        # Verificar permisos según el modo (todos/cualquiera)
         if todos:
             return all(self.tiene_permiso(p) for p in permisos)
-        else:
-            return any(self.tiene_permiso(p) for p in permisos)
+        return any(self.tiene_permiso(p) for p in permisos)
     
-        """Elimina un permiso directamente del usuario"""
-        for up in self.permisos_usuario:
-            if up.permiso.nombre == nombre_permiso:
-                db.session.delete(up)
-                return True
-        return False
-        
     def obtener_permisos(self):
-        """Obtiene todos los permisos del usuario (directos y de su rol)"""
+        """
+        Obtiene todos los permisos del usuario, incluyendo los asignados directamente
+        y los heredados de su rol.
+        
+        Returns:
+            set: Conjunto de nombres de permisos únicos que tiene el usuario.
+            
+        Notas:
+            - Los permisos directos del usuario tienen prioridad sobre los del rol.
+            - Los superadministradores tienen implícitamente todos los permisos.
+        """
+        # Si es superadmin, devolver todos los permisos existentes
+        if self.es_superadmin():
+            return {p.nombre for p in Permiso.query.all()}
+        
         # Obtener permisos directos del usuario
-        permisos_directos = [up.permiso.nombre for up in self.permisos_usuario]
+        permisos_directos = {up.permiso.nombre for up in self.permisos_usuario}
         
-        # Obtener permisos del rol
-        permisos_rol = db.session.query(Permiso.nombre).join(RolPermiso).filter(
-            RolPermiso.rol == self.rol  # Cambiado de self.tipo a self.rol
-        ).all()
-        permisos_rol = [p[0] for p in permisos_rol]
+        # Obtener permisos del rol (solo si el usuario tiene un rol válido)
+        permisos_rol = set()
+        if self.rol:
+            permisos_rol = {p[0] for p in db.session.query(Permiso.nombre)
+                          .join(RolPermiso, Permiso.id == RolPermiso.permiso_id)
+                          .filter(RolPermiso.rol == self.rol)
+                          .all()}
         
-        # Combinar y eliminar duplicados
-        return list(set(permisos_directos + permisos_rol))
-        
+        # Devolver la unión de permisos directos y del rol
+        return permisos_directos.union(permisos_rol)
+    
     def obtener_permisos_por_categoria(self):
-        """Obtiene los permisos del usuario agrupados por categoría"""
+        """
+        Obtiene los permisos del usuario agrupados por categoría.
+        
+        Returns:
+            dict: Un diccionario donde las claves son las categorías de permisos y los valores
+                 son listas de tuplas (permiso, fecha_asignacion, es_directo).
+        """
         from collections import defaultdict
+        
+        # Inicializar diccionario para agrupar por categoría
+        permisos_por_categoria = defaultdict(list)
+        
+        # Si es superadmin, obtener todos los permisos existentes
+        if self.es_superadmin():
+            todos_los_permisos = Permiso.query.all()
+            for permiso in todos_los_permisos:
+                permisos_por_categoria[permiso.categoria or 'Sin categoría'].append(
+                    (permiso, None, False)  # (permiso, fecha, es_directo)
+                )
+            return dict(permisos_por_categoria)
         
         # Obtener permisos directos del usuario
         permisos_directos = db.session.query(
@@ -382,31 +446,100 @@ class Usuario(db.Model, UserMixin):
             UsuarioPermiso.usuario_id == self.id
         ).all()
         
-        # Obtener permisos del rol
-        permisos_rol = db.session.query(Permiso).join(RolPermiso).filter(
-            RolPermiso.rol == self.tipo
-        ).all()
-        
-        # Agregar permisos del rol con fecha None (no aplica)
-        permisos_rol = [(p, None) for p in permisos_rol]
-        
-        # Combinar y agrupar por categoría
-        permisos_por_categoria = defaultdict(list)
-        
-        for permiso, fecha_asignacion in permisos_directos + permisos_rol:
+        # Procesar permisos directos
+        for permiso, fecha_asignacion in permisos_directos:
             categoria = permiso.categoria or 'Sin categoría'
-            permisos_por_categoria[categoria].append({
-                'id': permiso.id,
-                'nombre': permiso.nombre,
-                'descripcion': permiso.descripcion,
-                'es_directo': fecha_asignacion is not None,
-                'fecha_asignacion': fecha_asignacion
-            })
+            permisos_por_categoria[categoria].append(
+                (permiso, fecha_asignacion, True)  # es_directo=True
+            )
+        
+        # Obtener permisos del rol (si el usuario tiene un rol)
+        if self.rol:
+            permisos_rol = db.session.query(Permiso).join(RolPermiso).filter(
+                RolPermiso.rol == self.rol
+            ).all()
+            
+            # Procesar permisos del rol (solo si no están ya en los directos)
+            permisos_directos_set = {p.id for p, _ in permisos_directos}
+            for permiso in permisos_rol:
+                if permiso.id not in permisos_directos_set:  # Evitar duplicados
+                    categoria = permiso.categoria or 'Sin categoría'
+                    permisos_por_categoria[categoria].append(
+                        (permiso, None, False)  # es_directo=False
+                    )
+        
+        # Convertir defaultdict a dict regular para evitar comportamientos inesperados
+        return dict(permisos_por_categoria)
+        
+    # Otros métodos...
+    
+    def tiene_permiso_objeto(self, objeto, accion):
+        """
+        Verifica si el usuario tiene permiso para realizar una acción sobre un objeto específico.
+        
+        Args:
+            objeto (str): Tipo de objeto sobre el que se realiza la acción (ej: 'usuario', 'equipo')
+            accion (str): Acción a realizar sobre el objeto (ej: 'crear', 'editar', 'eliminar')
+            
+        Returns:
+            bool: True si el usuario tiene el permiso, False en caso contrario
+        """
+        # Construir el nombre del permiso (ej: 'usuario_editar')
+        permiso = f"{objeto}_{accion}".lower()
+        return self.tiene_permiso(permiso)
+        
+    def puede_ver(self, recurso):
+        """
+        Verifica si el usuario puede ver un recurso específico.
+        
+        Args:
+            recurso (str): Nombre del recurso a verificar
+            
+        Returns:
+            bool: True si el usuario tiene permiso para ver el recurso
+        """
+        return self.tiene_permiso_objeto(recurso, 'ver')
+        
+    def puede_editar(self, recurso):
+        """
+        Verifica si el usuario puede editar un recurso específico.
+        
+        Args:
+            recurso (str): Nombre del recurso a verificar
+            
+        Returns:
+            bool: True si el usuario tiene permiso para editar el recurso
+        """
+        return self.tiene_permiso_objeto(recurso, 'editar')
+        
+    def puede_eliminar(self, recurso):
+        """
+        Verifica si el usuario puede eliminar un recurso específico.
+        
+        Args:
+            recurso (str): Nombre del recurso a verificar
+            
+        Returns:
+            bool: True si el usuario tiene permiso para eliminar el recurso
+        """
+        return self.tiene_permiso_objeto(recurso, 'eliminar')
+        
+    def puede_crear(self, recurso):
+        """
+        Verifica si el usuario puede crear un nuevo recurso del tipo especificado.
+        
+        Args:
+            recurso (str): Nombre del recurso a verificar
+            
+        Returns:
+            bool: True si el usuario tiene permiso para crear el recurso
+        """
+        return self.tiene_permiso_objeto(recurso, 'crear')
             
         return dict(permisos_por_categoria)
         
     def __repr__(self):
-        return f'<Usuario {self.email} ({self.tipo})>'
+        return f'<Usuario {self.email} ({self.rol})>'
         
     def agregar_permiso(self, nombre_permiso):
         """Agrega un permiso al rol del usuario"""
@@ -417,14 +550,14 @@ class Usuario(db.Model, UserMixin):
                 db.session.add(permiso)
                 db.session.commit()
                 
-            rol_permiso = RolPermiso(rol=self.tipo, permiso_id=permiso.id)
+            rol_permiso = RolPermiso(rol=self.rol, permiso_id=permiso.id)
             db.session.add(rol_permiso)
             db.session.commit()
             return True
         return False
     
     def __repr__(self):
-        return f'<Usuario {self.nombre} ({self.tipo})>'
+        return f'<Usuario {self.nombre} ({self.rol})>'
 
 
 class SuperAdmin(Usuario):
@@ -447,7 +580,7 @@ class SuperAdmin(Usuario):
     
     def __init__(self, **kwargs):
         super(SuperAdmin, self).__init__(**kwargs)
-        self.tipo = 'superadmin'
+        self.rol = 'superadmin'
         # Asignar permisos por defecto
         self.asignar_permisos_por_defecto()
         
@@ -507,7 +640,7 @@ class Admin(Usuario):
     
     def __init__(self, **kwargs):
         super(Admin, self).__init__(**kwargs)
-        self.tipo = 'admin'
+        self.rol = 'admin'
         # Asignar permisos por defecto
         self.asignar_permisos_por_defecto()
     
@@ -670,7 +803,7 @@ class Tecnico(Usuario):
     
     def __init__(self, **kwargs):
         super(Tecnico, self).__init__(**kwargs)
-        self.tipo = 'tecnico'
+        self.rol = 'tecnico'
         # Asignar permisos por defecto
         self.asignar_permisos_por_defecto()
     
@@ -682,7 +815,7 @@ class Tecnico(Usuario):
             'editar_conteos_propios',
             'ver_equipos_asignados',
             'ver_visitas_propias',
-            'registrar_visitas',
+            'crear_visitas',
             'reportar_incidentes',
             'solicitar_materiales',
             'ver_calendario',

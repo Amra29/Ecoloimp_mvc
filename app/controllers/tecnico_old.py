@@ -149,7 +149,7 @@ def crear_reporte(asignacion_id):
 
     # Si es una petición GET o el formulario no es válido, mostrar el formulario
     if request.method == 'GET' or not form.validate_on_submit():
-        return render_template('tecnico/reporte_form.html', form=form, asignacion=asignacion)
+        return render_template('tecnico/reportes/form.html', form=form, asignacion=asignacion)
     
     # Si el formulario es válido y es una petición POST
     try:
@@ -196,7 +196,7 @@ def crear_reporte(asignacion_id):
                     asignacion.fecha_finalizacion = datetime.utcnow()
             except Exception as e:
                 flash(f'Error al procesar la firma: {str(e)}', 'error')
-                return render_template('tecnico/reporte_form.html', form=form, asignacion=asignacion)
+                return render_template('tecnico/reportes/form.html', form=form, asignacion=asignacion)
 
         # Procesar horas
         try:
@@ -225,7 +225,7 @@ def crear_reporte(asignacion_id):
 
         except (ValueError, TypeError) as e:
             flash(f'Error en el formato de hora: {str(e)}. Use HH:MM', 'error')
-            return render_template('tecnico/reporte_form.html', form=form, asignacion=asignacion)
+            return render_template('tecnico/reportes/form.html', form=form, asignacion=asignacion)
 
         try:
             if not reporte_existente:
@@ -244,7 +244,7 @@ def crear_reporte(asignacion_id):
         flash(f'Error inesperado al procesar el reporte: {str(e)}', 'error')
         
     # Si hay un error, volver a mostrar el formulario con los datos ingresados
-    return render_template('tecnico/reporte_form.html', form=form, asignacion=asignacion)
+    return render_template('tecnico/reportes/form.html', form=form, asignacion=asignacion)
 
 
 @tecnico_bp.route('/reporte/ver/<int:asignacion_id>')
@@ -263,7 +263,7 @@ def ver_reporte(asignacion_id):
         flash('No se encontró el reporte solicitado', 'error')
         return redirect(url_for('tecnico.crear_reporte', asignacion_id=asignacion_id))
 
-    return render_template('tecnico/reporte_ver.html', asignacion=asignacion, reporte=reporte)
+    return render_template('tecnico/reportes/view.html', asignacion=asignacion, reporte=reporte)
 
 
 @tecnico_bp.route('/reporte/<int:asignacion_id>/firmar', methods=['POST'])
@@ -380,7 +380,7 @@ def solicitar_pieza():
         flash('Pedido de pieza enviado exitosamente', 'success')
         return redirect(url_for('tecnico.mis_pedidos'))
 
-    return render_template('tecnico/pedido_form.html', form=form)
+    return render_template('tecnico/pedidos/form.html', form=form)
 
 
 @tecnico_bp.route('/mis-pedidos')
@@ -408,4 +408,4 @@ def mis_pedidos():
     pedidos = query.order_by(PedidoPieza.fecha_pedido.desc()).paginate(
         page=page, per_page=10, error_out=False)
 
-    return render_template('tecnico/mis_pedidos.html', pedidos=pedidos, estado_actual=estado)
+    return render_template('tecnico/pedidos/list.html', pedidos=pedidos, estado_actual=estado)

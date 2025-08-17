@@ -17,7 +17,7 @@ def init_permisos():
         ('ver_usuarios', 'Ver lista de usuarios'),
         ('crear_usuarios', 'Crear nuevos usuarios'),
         ('editar_usuarios', 'Editar usuarios existentes'),
-        'eliminar_usuarios', 'Eliminar usuarios',
+        ('eliminar_usuarios', 'Eliminar usuarios'),
         
         # Permisos de gestión de clientes
         ('gestionar_clientes', 'Gestionar clientes'),
@@ -68,10 +68,10 @@ def init_permisos():
     
     # Asignar permisos a roles
     roles_permisos = {
-        'administrador': ['admin_todo'],
+        'admin': ['admin_todo'],
         'tecnico': [
             'ver_conteos', 'crear_conteos', 'editar_conteos_propios',
-            'ver_equipos', 'ver_visitas', 'registrar_visitas'
+            'ver_equipos', 'ver_visitas', 'crear_visitas'
         ]
     }
     
@@ -117,8 +117,8 @@ def login():
             # Iniciar sesión
             login_user(usuario, remember=form.remember_me.data)
             
-            # Registrar el último inicio de sesión
-            usuario.ultimo_inicio = db.func.now()
+            # Registrar el último acceso del usuario
+            usuario.ultimo_acceso = db.func.now()
             db.session.commit()
             
             flash(f'Bienvenido {usuario.nombre}', 'success')
