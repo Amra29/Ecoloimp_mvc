@@ -65,6 +65,7 @@ def register_blueprints(app):
     from app.controllers.partes import partes_bp
     from app.controllers.reportes import reportes_bp
     from app.controllers.admin import admin_bp
+    from app.controllers.admin_permisos import permisos_bp
     from app.controllers.solicitudes import solicitudes_bp
     from app.controllers.clientes import clientes_bp
     from app.controllers.asignaciones import asignaciones_bp
@@ -84,6 +85,7 @@ def register_blueprints(app):
     app.register_blueprint(partes_bp, url_prefix='/partes')
     app.register_blueprint(reportes_bp, url_prefix='/reportes')
     app.register_blueprint(admin_bp, url_prefix='/admin')
+    app.register_blueprint(permisos_bp, url_prefix='/admin/permisos')
     app.register_blueprint(solicitudes_bp, url_prefix='/solicitudes')
     app.register_blueprint(clientes_bp, url_prefix='/clientes')
     app.register_blueprint(asignaciones_bp, url_prefix='/asignaciones')

@@ -23,13 +23,26 @@ def dashboard():
     # Obtener facturas pendientes de pago
     facturas_pendientes = Factura.query.filter_by(estado='pendiente').count()
     
-    # Obtener últimas solicitudes
-    ultimas_solicitudes = Solicitud.query.order_by(
+    # Obtener últimas solicitudes con información del cliente
+    ultimas_solicitudes = db.session.query(
+        Solicitud,
+        Cliente.nombre.label('nombre_cliente'),
+        Cliente.apellido.label('apellido_cliente')
+    ).join(
+        Cliente, Solicitud.cliente_id == Cliente.id
+    ).order_by(
         Solicitud.fecha_creacion.desc()
     ).limit(5).all()
     
     # Obtener pedidos de piezas pendientes
     pedidos_pendientes = PedidoPieza.query.filter_by(estado='pendiente').count()
+    
+    # Si es superadmin, obtener estadísticas adicionales
+    if hasattr(current_user, 'is_superadmin') and current_user.is_superadmin():
+        from app.models import Usuario
+        total_usuarios = Usuario.query.count()
+        total_administradores = Usuario.query.filter_by(rol='admin').count()
+        total_superadmins = Usuario.query.filter_by(rol='superadmin').count()
     
     return render_template(
         'admin/dashboard.html',
@@ -39,7 +52,11 @@ def dashboard():
         solicitudes_en_proceso=solicitudes_en_proceso,
         facturas_pendientes=facturas_pendientes,
         ultimas_solicitudes=ultimas_solicitudes,
-        pedidos_pendientes=pedidos_pendientes
+        pedidos_pendientes=pedidos_pendientes,
+        # Solo incluir estas variables si existen
+        **({'total_usuarios': total_usuarios} if 'total_usuarios' in locals() else {}),
+        **({'total_administradores': total_administradores} if 'total_administradores' in locals() else {}),
+        **({'total_superadmins': total_superadmins} if 'total_superadmins' in locals() else {})
     )
 
 
