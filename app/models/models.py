@@ -252,80 +252,59 @@ class Usuario(db.Model, UserMixin):
             
     def is_admin(self):
         """
-        Verifica si el usuario tiene rol de administrador o superior.
+        Check if the user has admin or superadmin role.
         
         Returns:
-            bool: True si el usuario es administrador o superadmin, False en caso contrario
+            bool: True if user is admin or superadmin, False otherwise
         """
         return self.ROLES.get(self.rol, {}).get('level', 0) >= self.ROLES['admin']['level']
         
     def is_tecnico(self):
         """
-        Verifica si el usuario tiene rol de técnico o superior.
+        Check if the user has at least tecnico role.
         
         Returns:
-            bool: True si el usuario es técnico, admin o superadmin, False en caso contrario
+            bool: True if user is tecnico, admin or superadmin, False otherwise
         """
         return self.ROLES.get(self.rol, {}).get('level', 0) >= self.ROLES['tecnico']['level']
-    
-    # Métodos de Flask-Login
+        
     def get_id(self):
         return str(self.id)
-    
-    @property
+        
     def is_active(self):
         return self.activo
-    
-    # Métodos de autorización
-    def tiene_rol(self, *roles):
+        
+    def has_role(self, *roles):
         """
-        Verifica si el usuario tiene alguno de los roles especificados o un rol superior.
+        Check if user has any of the specified roles or a higher role.
         
         Args:
-            *roles: Nombres de roles a verificar
+            *roles: Role names to check
             
         Returns:
-            bool: True si el usuario tiene al menos uno de los roles especificados o superior, False en caso contrario
+            bool: True if user has at least one of the specified roles or higher
         """
-        if not roles:
-            return False
-            
         user_level = self.ROLES.get(self.rol, {}).get('level', 0)
+        for role in roles:
+            role_level = self.ROLES.get(role, {}).get('level', -1)
+            if user_level >= role_level:
+                return True
+        return False
         
-        # Verificar si el nivel del usuario es mayor o igual al nivel mínimo requerido
-        min_required_level = min(
-            (self.ROLES.get(role, {}).get('level', float('inf')) for role in roles),
-            default=float('inf')
-        )
-        
-        return user_level >= min_required_level
-    
-    def es_superadmin(self):
+    def is_superadmin(self):
         """
-        Verifica si el usuario es superadministrador.
+        Check if user is a superadmin.
         
         Returns:
-            bool: True si el usuario es superadministrador, False en caso contrario
+            bool: True if user is superadmin, False otherwise
         """
         return self.rol == 'superadmin'
-    
-    def es_admin(self):
-        """
-        Verifica si el usuario es administrador o superadministrador.
         
-        Returns:
-            bool: True si es admin o superadmin, False en caso contrario.
-        """
-        return self.is_admin()
-    
-    def es_tecnico(self):
-        """
-        Verifica si el usuario es técnico o tiene un rol superior.
-        
-        Returns:
-            bool: True si es técnico, admin o superadmin, False en caso contrario.
-        """
-        return self.is_tecnico()
+    # Alias methods for backward compatibility
+    es_admin = is_admin
+    es_tecnico = is_tecnico
+    es_superadmin = is_superadmin
+    tiene_rol = has_role
     
     def tiene_permiso(self, permiso_nombre):
         """
@@ -383,8 +362,8 @@ class Usuario(db.Model, UserMixin):
             
         # Verificar permisos según el modo (todos/cualquiera)
         if todos:
-            return all(# Removed duplicate: self.tiene_permiso(p) for p in permisos)
-        return any(# Removed duplicate: self.tiene_permiso(p) for p in permisos)
+            return all(self.tiene_permiso(p) for p in permisos)
+        return any(self.tiene_permiso(p) for p in permisos)
     
     def obtener_permisos(self):
         """
@@ -469,7 +448,7 @@ class Usuario(db.Model, UserMixin):
                     )
         
         # Convertir defaultdict a dict regular para evitar comportamientos inesperados
-#         return dict(permisos_por_categoria)  # Removed duplicate
+        return dict(permisos_por_categoria)
         
     # Otros métodos...
     
@@ -486,7 +465,7 @@ class Usuario(db.Model, UserMixin):
         """
         # Construir el nombre del permiso (ej: 'usuario_editar')
         permiso = f"{objeto}_{accion}".lower()
-        return # Removed duplicate: self.tiene_permiso(permiso)
+        return self.tiene_permiso(permiso)
         
     def puede_ver(self, recurso):
         """
@@ -536,14 +515,12 @@ class Usuario(db.Model, UserMixin):
         """
         return self.tiene_permiso_objeto(recurso, 'crear')
             
-#         return dict(permisos_por_categoria)  # Removed duplicate
-        
     def __repr__(self):
         return f'<Usuario {self.email} ({self.rol})>'
         
     def agregar_permiso(self, nombre_permiso):
         """Agrega un permiso al rol del usuario"""
-        if not # Removed duplicate: self.tiene_permiso(nombre_permiso):
+        if not self.tiene_permiso(nombre_permiso):
             permiso = Permiso.query.filter_by(nombre=nombre_permiso).first()
             if not permiso:
                 permiso = Permiso(nombre=nombre_permiso, descripcion=f'Permiso para {nombre_permiso}')
@@ -555,9 +532,6 @@ class Usuario(db.Model, UserMixin):
             db.session.commit()
             return True
         return False
-    
-    # Removed duplicate: def __repr__(self):
-        return f'<Usuario {self.nombre} ({self.rol})>'
 
 
 class SuperAdmin(Usuario):
@@ -584,15 +558,6 @@ class SuperAdmin(Usuario):
         # Asignar permisos por defecto
         self.asignar_permisos_por_defecto()
         
-    def is_superadmin(self):
-        """
-        Verifica si el usuario es superadministrador.
-        
-        Returns:
-            bool: Siempre True para instancias de SuperAdmin
-        """
-        return True
-
     def asignar_permisos_por_defecto(self):
         """Asigna los permisos por defecto para superadministradores"""
         permisos_superadmin = [
@@ -644,15 +609,6 @@ class Admin(Usuario):
         # Asignar permisos por defecto
         self.asignar_permisos_por_defecto()
     
-    def is_superadmin(self):
-        """
-        Verifica si el usuario es superadministrador.
-        
-        Returns:
-            bool: Siempre False para instancias de Admin
-        """
-        return False
-        
     def asignar_permisos_por_defecto(self):
         """Asigna los permisos por defecto para administradores"""
         permisos_admin = [

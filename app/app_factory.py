@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Optional, Dict, Any, Callable, Union, List, Tuple
 
 from flask import Flask, jsonify, render_template, request, current_app, g, session, redirect, url_for
-from flask.json import JSONEncoder
+from flask.json.provider import DefaultJSONProvider
 from flask_login import current_user
 from werkzeug.exceptions import HTTPException, default_exceptions
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -27,6 +27,7 @@ from markupsafe import Markup
 from .extensions import (
     db, login_manager, csrf, migrate, mail, limiter, cache, cors, debug_toolbar
 )
+from .middleware.security import init_app as init_security
 from .utils.config import (
     get_env_variable, get_bool_env, get_int_env, get_list_env, get_path_env,
     ensure_directory_exists, ConfigError
@@ -90,6 +91,9 @@ def create_app(config_name: Optional[str] = None) -> Flask:
         
         # Log application startup
         app.logger.info(f'Starting application in {config_name} configuration')
+        
+        # Initialize security middleware
+        init_security(app)
         
         # Initialize extensions
         _init_extensions(app)
@@ -245,8 +249,8 @@ def _configure_app(app: Flask, config_name: str) -> None:
     if not app.config['SECRET_KEY'] or app.config['SECRET_KEY'] == 'dev-secret-key-change-this-in-production':
         app.logger.warning('Using default SECRET_KEY. This is not secure for production!')
     
-    # Configure JSON encoder for custom types
-    class CustomJSONEncoder(JSONEncoder):
+    # Configure JSON provider for custom types
+    class CustomJSONProvider(DefaultJSONProvider):
         def default(self, obj):
             if hasattr(obj, 'to_dict'):
                 return obj.to_dict()
@@ -254,7 +258,7 @@ def _configure_app(app: Flask, config_name: str) -> None:
                 return obj.isoformat()
             return super().default(obj)
     
-    app.json_encoder = CustomJSONEncoder
+    app.json = CustomJSONProvider(app)
     # Configure directories
     _ensure_directories_exist(app)
     
@@ -1068,129 +1072,24 @@ def _register_error_handlers(app: Flask) -> None:
     def handle_exception(error):
         return error_handler(error)
     
-    # Register a handler for HTTP exceptions
-    @app.errorhandler(HTTPException)
-    def handle_http_exception(e):
-        if request.accept_mimetypes.accept_json and not request.accept_mimetypes.accept_html:
-            response = jsonify({
-                'error': e.name,
-                'message': e.description
-            })
-            response.status_code = e.code or 500
-            return response
-        return render_template(f'errors/{e.code}.html', error=e), e.code
-
-
-def _configure_logging(app: Flask) -> None:
-    """Configure application logging."""
-    if app.config.get('LOG_TO_STDOUT'):
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setLevel(app.config['LOG_LEVEL'])
-        formatter = logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        )
-        stream_handler.setFormatter(formatter)
-        app.logger.addHandler(stream_handler)
-    
-    if not app.debug and not app.testing:
-        # Log to file in production
-        if not os.path.exists('logs'):
-            os.mkdir('logs')
-        file_handler = RotatingFileHandler(
-            'logs/servicio-tecnico.log',
-            maxBytes=10240,
-            backupCount=10
-        )
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s '
-            '[in %(pathname)s:%(lineno)d]'
-        ))
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
-        
-        app.logger.setLevel(logging.INFO)
-        app.logger.info('Servicio Técnico startup')
-
-
-def _ensure_directories_exist(app: Flask) -> None:
-    """Ensure all required directories exist."""
-    # Create upload directory if it doesn't exist
-    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-    
-    # Create instance directory for SQLite database
-    os.makedirs(os.path.join(app.instance_path, 'tmp'), exist_ok=True)
-    
-    return app
-
-
-def _configure_directories(app):
-    """Configura los directorios necesarios para la aplicación."""
-    # Asegurar que el directorio de instancia exista
-    os.makedirs(app.instance_path, exist_ok=True)
-    
-    # Configurar directorio para subidas de archivos
-    upload_folder = os.path.join(app.instance_path, 'uploads')
-    os.makedirs(upload_folder, exist_ok=True)
-    app.config['UPLOAD_FOLDER'] = upload_folder
-    
-    # Crear directorio para archivos temporales
-    temp_folder = os.path.join(app.instance_path, 'temp')
-    os.makedirs(temp_folder, exist_ok=True)
-    app.config['TEMP_FOLDER'] = temp_folder
+    # Log application startup
+    app.logger.info('Servicio Técnico startup')
 
 
 def _configure_app_context(app):
-    """Configura el contexto de la aplicación."""
-    # Configurar Flask-Login
+    """Configures the application context."""
+    # Configure Flask-Login
     login_manager.login_view = 'auth.login'
-    login_manager.login_message = 'Debe iniciar sesión para acceder a esta página.'
+    login_manager.login_message = 'Please log in to access this page.'
     login_manager.login_message_category = 'info'
     login_manager.session_protection = 'strong'
     
-    # Registrar procesadores de contexto
+    # Register context processors
     from app.utils.context_processors import inject_template_vars
     app.context_processor(inject_template_vars)
     
-    # Configurar manejador de usuarios para Flask-Login
+    # Configure user loader for Flask-Login
     @login_manager.user_loader
     def load_user(user_id):
         from app.models.models import Usuario
         return db.session.get(Usuario, int(user_id))
-
-
-def _configure_error_handlers(app):
-    """Configura los manejadores de errores globales."""
-    # Importar manejadores de errores
-    from app.controllers.error_handlers import register_error_handlers
-    
-    # Registrar manejadores de errores personalizados
-    register_error_handlers(app)
-    
-    # Configurar logging
-    if not app.debug and not app.testing:
-        import logging
-        from logging.handlers import RotatingFileHandler
-        
-        # Crear directorio de logs si no existe
-        log_dir = os.path.join(app.root_path, '..', 'logs')
-        os.makedirs(log_dir, exist_ok=True)
-        
-        # Configurar el manejador de archivos rotativos
-        file_handler = RotatingFileHandler(
-            os.path.join(log_dir, 'app.log'),
-            maxBytes=10240,
-            backupCount=10
-        )
-        
-        # Configurar el formato del log
-        file_handler.setFormatter(logging.Formatter(
-            '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-        ))
-        
-        # Configurar el nivel de log
-        file_handler.setLevel(logging.INFO)
-        app.logger.addHandler(file_handler)
-        
-        # Establecer el nivel de log de la aplicación
-        app.logger.setLevel(logging.INFO)
-        app.logger.info('Inicio de la aplicación')
