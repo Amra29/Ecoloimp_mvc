@@ -59,7 +59,7 @@ FILES_TO_REMOVE = [
 
 # Controladores a conservar
 CONTROLLERS_TO_KEEP = {
-    'auth.py',
+    'auth_controller.py',
     'main.py',
     '__init__.py',
     'conteo_impresiones',  # Nuestro módulo de conteo

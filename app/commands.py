@@ -6,7 +6,7 @@ from flask import current_app
 from flask.cli import with_appcontext
 from app.extensions import db
 from app.models.models import Permiso, RolPermiso
-from app.controllers.auth import init_permisos
+from app.controllers.auth_controller import init_permisos
 
 
 def init_app(app):

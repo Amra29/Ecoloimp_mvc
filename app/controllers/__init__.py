@@ -9,31 +9,31 @@ from app.decorators import role_required, permission_required
 
 # Importar blueprints
 from .admin import admin_bp
-from .auth import auth_bp
-from .clientes import clientes_bp
-from .equipos import equipos_bp
-from .facturas import facturas_bp
+from .auth_controller import auth_bp
+from .clientes_controller import clientes_bp
+from .equipos_controller import equipos_bp
+from .facturas_controller import facturas_bp
 from .partes import partes_bp
-from .pedidos_piezas import pedidos_bp
-from .reportes import reportes_bp
-from .solicitudes import solicitudes_bp
+from .pedidos_controller import pedidos_bp
+from .reportes_controller import reportes_bp
+from .solicitudes_controller import solicitudes_bp
 from .tecnicos import tecnicos_bp
 from .asignaciones import asignaciones_bp
 from .tecnico_dashboard import tecnico_dashboard_bp
 
 # Importar controladores para asegurar el registro de blueprints
 from . import (
-    admin, 
-    auth, 
-    clientes, 
-    equipos, 
-    facturas, 
-    partes, 
-    pedidos_piezas, 
-    reportes, 
-    solicitudes, 
-    tecnicos, 
-    asignaciones, 
+    admin,
+    auth_controller,
+    clientes_controller,
+    equipos_controller,
+    facturas_controller,
+    partes,
+    pedidos_controller,
+    reportes_controller,
+    solicitudes_controller,
+    tecnicos,
+    asignaciones,
     tecnico_dashboard
 )
 from .test import test_bp  # Solo para desarrollo

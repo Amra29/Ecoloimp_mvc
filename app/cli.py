@@ -29,7 +29,7 @@ def init_permissions_command():
     """Inicializa los permisos del sistema."""
     try:
         # Importar aquí para evitar importación circular
-        from app.controllers.auth import init_permisos
+        from app.controllers.auth_controller import init_permisos
         
         # Asegurarse de que las tablas existan
         db.create_all()

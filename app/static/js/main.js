@@ -64,92 +64,53 @@ document.addEventListener("DOMContentLoaded", () => {
   if (canvas) {
     var ctx = canvas.getContext("2d")
     var isDrawing = false
-    var lastX = 0
-    var lastY = 0
+    var lastPoint = { x: 0, y: 0 }
 
-    function startDrawing(e) {
+    canvas.addEventListener("mousedown", function (e) {
       isDrawing = true
-      var rect = canvas.getBoundingClientRect()
-      lastX = (e.clientX || e.touches[0].clientX) - rect.left
-      lastY = (e.clientY || e.touches[0].clientY) - rect.top
-    }
-
-    function draw(e) {
-      if (!isDrawing) return
-
-      var rect = canvas.getBoundingClientRect()
-      var currentX = (e.clientX || e.touches[0].clientX) - rect.left
-      var currentY = (e.clientY || e.touches[0].clientY) - rect.top
-
-      ctx.beginPath()
-      ctx.moveTo(lastX, lastY)
-      ctx.lineTo(currentX, currentY)
-      ctx.strokeStyle = "#000"
-      ctx.lineWidth = 2
-      ctx.lineCap = "round"
-      ctx.stroke()
-
-      lastX = currentX
-      lastY = currentY
-    }
-
-    function stopDrawing() {
+      lastPoint = { x: e.offsetX, y: e.offsetY }
+    })
+    canvas.addEventListener("mouseup", function () {
       isDrawing = false
-    }
-
-    // Eventos para mouse
-    canvas.addEventListener("mousedown", startDrawing)
-    canvas.addEventListener("mousemove", draw)
-    canvas.addEventListener("mouseup", stopDrawing)
-    canvas.addEventListener("mouseout", stopDrawing)
-
-    // Eventos para touch (dispositivos móviles)
-    canvas.addEventListener("touchstart", (e) => {
-      e.preventDefault()
-      startDrawing(e)
     })
-    canvas.addEventListener("touchmove", (e) => {
-      e.preventDefault()
-      draw(e)
+    canvas.addEventListener("mouseout", function () {
+      isDrawing = false
     })
-    canvas.addEventListener("touchend", (e) => {
-      e.preventDefault()
-      stopDrawing()
+    canvas.addEventListener("mousemove", function (e) {
+      if (isDrawing) {
+        ctx.beginPath()
+        ctx.moveTo(lastPoint.x, lastPoint.y)
+        ctx.lineTo(e.offsetX, e.offsetY)
+        ctx.stroke()
+        lastPoint = { x: e.offsetX, y: e.offsetY }
+      }
     })
-
-    // Botón para limpiar firma
-    var clearButton = document.getElementById("clear-signature")
-    if (clearButton) {
-      clearButton.addEventListener("click", () => {
+    // Botón limpiar firma
+    var clearBtn = document.getElementById("clear-signature")
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height)
-        document.getElementById("firma_cliente").value = ""
-      })
-    }
-
-    // Guardar firma como base64
-    var saveButton = document.getElementById("save-signature")
-    if (saveButton) {
-      saveButton.addEventListener("click", () => {
-        var dataURL = canvas.toDataURL()
-        document.getElementById("firma_cliente").value = dataURL
       })
     }
   }
 
-  // Cálculo automático de tiempo en reportes
+  // Cálculo de tiempo (ejemplo: para servicios)
   var horaInicioInput = document.getElementById("hora_inicio")
   var horaFinInput = document.getElementById("hora_fin")
   var tiempoTotalSpan = document.getElementById("tiempo_total")
 
-  if (horaInicioInput && horaFinInput && tiempoTotalSpan) {
-    function calcularTiempo() {
+  function convertirAMinutos(tiempo) {
+    var partes = tiempo.split(":")
+    return Number.parseInt(partes[0]) * 60 + Number.parseInt(partes[1])
+  }
+
+  function calcularTiempo() {
+    if (horaInicioInput && horaFinInput && tiempoTotalSpan) {
       var inicio = horaInicioInput.value
       var fin = horaFinInput.value
-
       if (inicio && fin) {
         var inicioMinutos = convertirAMinutos(inicio)
         var finMinutos = convertirAMinutos(fin)
-
         if (finMinutos > inicioMinutos) {
           var diferencia = finMinutos - inicioMinutos
           var horas = Math.floor(diferencia / 60)
@@ -158,59 +119,8 @@ document.addEventListener("DOMContentLoaded", () => {
         }
       }
     }
-
-    function convertirAMinutos(tiempo) {
-      var partes = tiempo.split(":")
-      return Number.parseInt(partes[0]) * 60 + Number.parseInt(partes[1])
-    }
-
-    horaInicioInput.addEventListener("change", calcularTiempo)
-    horaFinInput.addEventListener("change", calcularTiempo)
   }
 
-  // Validación de formularios
-  var forms = document.querySelectorAll(".needs-validation")
-  forms.forEach((form) => {
-    form.addEventListener("submit", (event) => {
-      if (!form.checkValidity()) {
-        event.preventDefault()
-        event.stopPropagation()
-      }
-      form.classList.add("was-validated")
-    })
-  })
+  if (horaInicioInput) horaInicioInput.addEventListener("input", calcularTiempo)
+  if (horaFinInput) horaFinInput.addEventListener("input", calcularTiempo)
 })
-
-// Función para mostrar notificaciones
-function showNotification(message, type = "info") {
-  var alertDiv = document.createElement("div")
-  alertDiv.className = `alert alert-${type} alert-dismissible fade show`
-  alertDiv.innerHTML = `
-        ${message}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    `
-
-  var container = document.querySelector(".container-fluid") || document.body
-  container.insertBefore(alertDiv, container.firstChild)
-
-  setTimeout(() => {
-    alertDiv.remove()
-  }, 5000)
-}
-
-// Función para formatear números como moneda
-function formatCurrency(amount) {
-  return new Intl.NumberFormat("es-CO", {
-    style: "currency",
-    currency: "COP",
-  }).format(amount)
-}
-
-// Función para formatear fechas
-function formatDate(date) {
-  return new Intl.DateTimeFormat("es-CO", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(date))
-}
